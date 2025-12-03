@@ -1,0 +1,892 @@
+From 225362b3b89698d0c3376b9129c8d4c1e821e2de Mon Sep 17 00:00:00 2001
+From: Keith Wiles <keith.wiles@intel.com>
+Date: Wed, 3 Dec 2025 17:09:45 -0600
+Subject: [PATCH] add pflow for TSN-Testbench
+
+Signed-off-by: Keith Wiles <keith.wiles@intel.com>
+---
+ drivers/net/intel/pflow/meson.build |   6 +
+ drivers/net/intel/pflow/rte_pflow.c | 793 ++++++++++++++++++++++++++++
+ drivers/net/intel/pflow/rte_pflow.h |  44 ++
+ drivers/net/meson.build             |   1 +
+ 4 files changed, 844 insertions(+)
+ create mode 100644 drivers/net/intel/pflow/meson.build
+ create mode 100644 drivers/net/intel/pflow/rte_pflow.c
+ create mode 100644 drivers/net/intel/pflow/rte_pflow.h
+
+diff --git a/drivers/net/intel/pflow/meson.build b/drivers/net/intel/pflow/meson.build
+new file mode 100644
+index 0000000000..77521cee41
+--- /dev/null
++++ b/drivers/net/intel/pflow/meson.build
+@@ -0,0 +1,6 @@
++# SPDX-License-Identifier: BSD-3-Clause
++# Copyright(c) 2017 Intel Corporation
++
++sources = files('rte_pflow.c')
++headers = files('rte_pflow.h')
++require_iova_in_mbuf = false
+diff --git a/drivers/net/intel/pflow/rte_pflow.c b/drivers/net/intel/pflow/rte_pflow.c
+new file mode 100644
+index 0000000000..0447380917
+--- /dev/null
++++ b/drivers/net/intel/pflow/rte_pflow.c
+@@ -0,0 +1,793 @@
++/* SPDX-License-Identifier: BSD-3-Clause
++ * Copyright(c) 2010-2015 Intel Corporation
++ */
++
++#include <stdlib.h>
++#include <unistd.h>
++
++#include <eal_export.h>
++#include "rte_pflow.h"
++#include <rte_mbuf.h>
++#include <ethdev_driver.h>
++#include <ethdev_vdev.h>
++#include <rte_malloc.h>
++#include <rte_memcpy.h>
++#include <rte_string_fns.h>
++#include <bus_vdev_driver.h>
++#include <rte_kvargs.h>
++#include <rte_errno.h>
++
++#define PFLOW_PARAM_RX_RING_SIZE "rx-ring-size"
++#define PFLOW_PARAM_TX_RING_SIZE "tx-ring-size"
++#define PFLOW_PARAM_BURST_COUNT  "burst-count"
++
++enum {
++    PFLOW_NAME_SIZE      = 32,
++    PFLOW_MAX_COUNT      = 16,
++    PFLOW_MAX_PATH_LEN   = 1024,
++    DEFAULT_RX_RING_SIZE = 8192,
++    DEFAULT_TX_RING_SIZE = 8192,
++};
++
++// clang-format off
++static const char *valid_arguments[] = {
++	PFLOW_PARAM_RX_RING_SIZE,
++    PFLOW_PARAM_TX_RING_SIZE,
++	PFLOW_PARAM_BURST_COUNT,
++	NULL
++};
++// clang-format on
++
++struct pmd_params {
++    struct rte_eth_dev *dev;
++    uint16_t numa_node;
++    uint16_t rx_ring_size;
++    uint16_t tx_ring_size;
++    uint16_t burst_cnt;
++};
++
++struct pmd_internals;
++
++struct pflow_queue {
++    struct pmd_internals *internals;        // pointer to internal PMD structure
++    struct rte_ring *rng;                   // Rx Ring for receive packets
++    uint16_t pid;                           // Port ID
++    uint16_t qid;                           // Queue ID
++    struct rte_eth_stats stats;             // Stats for the port and queue
++};
++
++struct pmd_internals {
++    struct pmd_params params;             // Configuration information to setup port
++    struct rte_ether_addr address;        // IP Address from the physical port
++    struct rte_mbuf **mbufs;              // A vector of rte_mbuf pointers
++    struct rte_ring *tx_rng;              // Transmit Ring one per pflow port
++
++    uint16_t phy_pid;                              // Physical Port ID for pflow to use
++    uint16_t phy_qid;                              // Physical Queue ID for pflow to use
++    pflow_get_qid_fn get_qid;                      // Function pointer to extract the Queue ID
++    const struct rte_eth_rxtx_callback *cb;        // Rx/Tx Callback ID for physical port
++
++    struct pflow_queue rx_queues[RTE_PMD_RING_MAX_RX_RINGS];        // Rx queue information
++    struct pflow_queue tx_queues[RTE_PMD_RING_MAX_TX_RINGS];        // Tx queue information
++};
++
++static struct pmd_internals *pflow_internals[RTE_MAX_ETHPORTS];
++
++static struct rte_eth_link pmd_link = {
++    .link_speed   = RTE_ETH_SPEED_NUM_10G,
++    .link_duplex  = RTE_ETH_LINK_FULL_DUPLEX,
++    .link_status  = RTE_ETH_LINK_DOWN,
++    .link_autoneg = RTE_ETH_LINK_FIXED,
++};
++
++RTE_LOG_REGISTER_DEFAULT(pflow_logtype, INFO);
++#define RTE_LOGTYPE_PFLOW pflow_logtype
++
++#define PMD_LOG(level, ...) RTE_LOG_LINE_PREFIX(level, PFLOW, "%s(): ", __func__, __VA_ARGS__)
++
++RTE_EXPORT_SYMBOL(pflow_callback_create)
++int
++pflow_callback_create(uint16_t pid, pflow_conf_t *cfg)
++{
++    struct pmd_internals *pmd = pflow_internals[pid];
++    int ret                   = 0;
++
++    if (!pmd) {
++        rte_exit(EXIT_FAILURE, "%s: PMD is NULL for port ID %u Queue ID %u\n", __func__,
++                 cfg->phy_pid, cfg->phy_qid);
++        return -ENODEV;
++    }
++    if (!cfg || cfg->phy_pid >= RTE_MAX_ETHPORTS || cfg->phy_qid >= PFLOW_MAX_QUEUES)
++        return -EINVAL;
++    if (!cfg->get_fn || !cfg->cb_fn)
++        return -EINVAL;
++
++    pmd->phy_pid = cfg->phy_pid;
++    pmd->phy_qid = cfg->phy_qid;
++    pmd->get_qid = cfg->get_fn;
++    pmd->cb      = rte_eth_add_rx_callback(cfg->phy_pid, cfg->phy_qid, cfg->cb_fn, cfg->cb_arg);
++    if (pmd->cb == NULL)
++        return -1;
++
++    if ((ret = rte_eth_macaddr_get(pmd->phy_pid, &pmd->address)) < 0)
++        rte_exit(EXIT_FAILURE, "Can't get MAC address: err=%s, port=%u\n", rte_strerror(-ret),
++                 pmd->phy_pid);
++
++    return 0;
++}
++
++RTE_EXPORT_SYMBOL(pflow_callback_destroy)
++int
++pflow_callback_destroy(uint16_t pid)
++{
++    struct pmd_internals *pmd = pflow_internals[pid];
++
++    if (!pmd | !pmd->cb)
++        return -EINVAL;
++
++    return rte_eth_remove_rx_callback(pmd->phy_pid, pmd->phy_qid, pmd->cb);
++}
++
++static uint16_t
++pflow_rx(void *q, struct rte_mbuf **bufs, uint16_t nb_bufs)
++{
++    struct pflow_queue *r     = q;
++    struct pmd_internals *pmd = r->internals;
++    pflow_get_qid_fn get      = pmd->get_qid;
++    uint16_t nb_rx            = 0, qid;
++
++    if (!get) {
++        fprintf(stderr, "%s: Get (get_pid) routine is not defined\n", __func__);
++        return 0;
++    }
++    if (r->qid == 0) {
++        nb_rx = rte_eth_rx_burst(pmd->phy_pid, pmd->phy_qid, bufs, nb_bufs);
++
++        for (uint16_t i = 0; i < nb_rx; i++) {
++            struct rte_mbuf *m = bufs[i];
++
++            qid = *get(m);
++            if (qid >= PFLOW_MAX_QUEUES) {
++                rte_pktmbuf_free(m);
++                r->stats.ierrors++;
++            } else {
++                if (rte_ring_enqueue(pmd->rx_queues[qid].rng, m) == 0)
++                    r->stats.ipackets++;
++                else {
++                    rte_pktmbuf_free(m);
++                    r->stats.ierrors++;
++                }
++            }
++        }
++    }
++    if (nb_bufs) {
++        nb_rx = (uint16_t)rte_ring_dequeue_burst(r->rng, (void **)bufs, nb_bufs, NULL);
++        if (nb_rx)
++            r->stats.ipackets += nb_rx;
++        return nb_rx;
++    }
++
++    return 0;
++}
++
++static uint16_t
++pflow_tx(void *q __rte_unused, struct rte_mbuf **bufs, uint16_t nb_bufs)
++{
++    struct pflow_queue *r     = q;
++    struct pmd_internals *pmd = r->internals;
++
++    // Enqueue all packets to the PMD instance TX Ring.
++    if (nb_bufs) {
++        uint16_t nb_pkts;
++        nb_pkts = rte_ring_enqueue_burst(pmd->tx_rng, (void **)bufs, nb_bufs, NULL);
++        if (nb_pkts == nb_bufs) {
++            r->stats.opackets += nb_bufs;
++        } else {
++            r->stats.oerrors += nb_bufs - nb_pkts;
++            rte_pktmbuf_free_bulk(&bufs[nb_pkts], nb_bufs - nb_pkts);
++            return 0;
++        }
++    }
++    if (r->qid == pmd->phy_qid) {
++        uint32_t burst_cnt      = pmd->params.burst_cnt;
++        struct rte_mbuf **mbufs = pmd->mbufs;
++
++        do {
++            uint16_t nb_pkts = rte_ring_dequeue_burst(pmd->tx_rng, (void **)mbufs, burst_cnt, NULL);
++            if (nb_pkts == 0)
++                return nb_bufs;
++            else {
++                uint16_t nb_tx, to_send = nb_pkts;
++                struct rte_mbuf **pkts = mbufs;
++
++                do {
++                    nb_tx = rte_eth_tx_burst(pmd->phy_pid, pmd->phy_qid, pkts, to_send);
++                    pkts += nb_tx;
++                    to_send -= nb_tx;
++                } while (to_send);
++            }
++        } while (true);
++    }
++
++    return nb_bufs;
++}
++
++RTE_EXPORT_SYMBOL(pflow_dump)
++void
++pflow_dump(uint16_t pid, uint16_t qid)
++{
++    struct pmd_internals *pmd = pflow_internals[pid];
++    struct rte_eth_dev *dev   = pmd->params.dev;
++
++    PMD_LOG(INFO, "Device '%s' port %u:", dev->data->name, dev->data->port_id);
++    PMD_LOG(INFO, "  MAC address: %02x:%02x:%02x:%02x:%02x:%02x",
++            dev->data->mac_addrs->addr_bytes[0], dev->data->mac_addrs->addr_bytes[1],
++            dev->data->mac_addrs->addr_bytes[2], dev->data->mac_addrs->addr_bytes[3],
++            dev->data->mac_addrs->addr_bytes[4], dev->data->mac_addrs->addr_bytes[5]);
++    PMD_LOG(INFO, "  RX queue count: %u", dev->data->nb_rx_queues);
++
++    rte_ring_dump(stdout, pmd->rx_queues[qid].rng);
++    rte_ring_dump(stdout, pmd->tx_rng);
++}
++
++static int
++pflow_configure(struct rte_eth_dev *dev __rte_unused)
++{
++    PMD_LOG(INFO, "Configure device '%s'", dev->data->name);
++    return 0;
++}
++
++static int
++pflow_start(struct rte_eth_dev *dev)
++{
++    struct pmd_internals *pmd = dev->data->dev_private;
++
++    PMD_LOG(INFO, "Starting device '%s' port %u", dev->data->name, dev->data->port_id);
++
++    if (rte_eth_link_get_nowait(pmd->phy_pid, &dev->data->dev_link) < 0)
++        return -1;
++    dev->data->dev_started = 1;
++
++    return 0;
++}
++
++static int
++pflow_stop(struct rte_eth_dev *dev)
++{
++    dev->data->dev_started          = 0;
++    dev->data->dev_link.link_status = RTE_ETH_LINK_DOWN;
++
++    PMD_LOG(INFO, "Stopping device '%s'", dev->data->name);
++
++    for (uint16_t i = 0; i < dev->data->nb_rx_queues; i++)
++        dev->data->rx_queue_state[i] = RTE_ETH_QUEUE_STATE_STARTED;
++    for (uint16_t i = 0; i < dev->data->nb_tx_queues; i++)
++        dev->data->tx_queue_state[i] = RTE_ETH_QUEUE_STATE_STARTED;
++    return 0;
++}
++
++static int
++pflow_set_link_down(struct rte_eth_dev *dev)
++{
++    uint16_t i;
++
++    dev->data->dev_link.link_status = RTE_ETH_LINK_DOWN;
++
++    for (i = 0; i < dev->data->nb_rx_queues; i++)
++        dev->data->rx_queue_state[i] = RTE_ETH_QUEUE_STATE_STOPPED;
++    for (i = 0; i < dev->data->nb_tx_queues; i++)
++        dev->data->tx_queue_state[i] = RTE_ETH_QUEUE_STATE_STOPPED;
++
++    return 0;
++}
++
++static int
++pflow_set_link_up(struct rte_eth_dev *dev)
++{
++    return pflow_start(dev);
++}
++
++static int
++pflow_rx_queue_setup(struct rte_eth_dev *dev, uint16_t qid, uint16_t nb_rx_desc __rte_unused,
++                     uint32_t socket_id __rte_unused,
++                     const struct rte_eth_rxconf *rx_conf __rte_unused,
++                     struct rte_mempool *mb_pool __rte_unused)
++{
++    struct pmd_internals *pmd = dev->data->dev_private;
++    struct pflow_queue *r     = &pmd->rx_queues[qid];
++    struct rte_ring *rng      = NULL;
++    char name[RTE_RING_NAMESIZE];
++    int cc;
++
++    PMD_LOG(INFO, "Setup '%s' Rx Port:Queue %u:%u Ring size %'u", dev->data->name,
++            dev->data->port_id, qid, pmd->params.rx_ring_size);
++
++    cc = snprintf(name, sizeof(name), "RXRing%u", qid);
++    if (cc >= (int)sizeof(name)) {
++        rte_errno = ENAMETOOLONG;
++        goto error;
++    }
++
++    rng = rte_ring_create(name, pmd->params.rx_ring_size, pmd->params.numa_node,
++                          RING_F_SP_ENQ | RING_F_SC_DEQ);
++    if (rng == NULL) {
++        rte_errno = ENOMEM;
++        goto error;
++    }
++
++    r->rng       = rng;
++    r->pid       = dev->data->port_id;
++    r->qid       = qid;
++    r->internals = pmd;
++
++    dev->data->rx_queues[qid] = r;
++    return 0;
++error:
++    rte_ring_free(r->rng);
++    return -1;
++}
++
++static int
++pflow_tx_queue_setup(struct rte_eth_dev *dev, uint16_t qid, uint16_t nb_tx_desc __rte_unused,
++                     uint32_t socket_id __rte_unused,
++                     const struct rte_eth_txconf *tx_conf __rte_unused)
++{
++    struct pmd_internals *pmd = dev->data->dev_private;
++    struct pflow_queue *r     = &pmd->tx_queues[qid];
++
++    PMD_LOG(INFO, "Setup '%s' Tx Port:Queue %u:%u", dev->data->name, dev->data->port_id, qid);
++
++    r->pid                    = dev->data->port_id;
++    r->qid                    = qid;
++    r->internals              = pmd;
++    dev->data->tx_queues[qid] = r;
++
++    return 0;
++}
++
++static int
++pflow_dev_info(struct rte_eth_dev *dev, struct rte_eth_dev_info *dev_info)
++{
++    struct pmd_internals *internals;
++
++    if ((dev == NULL) || (dev_info == NULL))
++        return -EINVAL;
++
++    internals                 = dev->data->dev_private;
++    dev_info->max_mac_addrs   = 1;
++    dev_info->max_rx_pktlen   = (uint32_t)-1;
++    dev_info->max_rx_queues   = RTE_DIM(internals->rx_queues);
++    dev_info->max_tx_queues   = RTE_DIM(internals->tx_queues);
++    dev_info->min_rx_bufsize  = 0;
++    dev_info->rx_offload_capa = RTE_ETH_RX_OFFLOAD_SCATTER | RTE_ETH_RX_OFFLOAD_IPV4_CKSUM |
++                                RTE_ETH_RX_OFFLOAD_UDP_CKSUM | RTE_ETH_RX_OFFLOAD_TCP_CKSUM;
++    dev_info->tx_offload_capa = RTE_ETH_TX_OFFLOAD_MULTI_SEGS | RTE_ETH_RX_OFFLOAD_IPV4_CKSUM |
++                                RTE_ETH_RX_OFFLOAD_UDP_CKSUM | RTE_ETH_RX_OFFLOAD_TCP_CKSUM;
++
++    return 0;
++}
++
++static int
++pflow_stats_get(struct rte_eth_dev *dev, struct rte_eth_stats *stats,
++                struct eth_queue_stats *qstats)
++{
++    struct pmd_internals *internal = dev->data->dev_private;
++
++    memset(stats, 0, sizeof(struct rte_eth_stats));
++
++    for (uint16_t i = 0; i < RTE_ETHDEV_QUEUE_STAT_CNTRS && i < dev->data->nb_rx_queues; i++) {
++        struct rte_eth_stats *s = &internal->rx_queues[i].stats;
++
++        if (qstats != NULL) {
++            qstats->q_ipackets[i] = s->ipackets;
++            qstats->q_ibytes[i]   = s->ibytes;
++            qstats->q_errors[i]   = s->ierrors;
++        }
++        stats->ipackets += s->ipackets;
++        stats->imissed += s->imissed;
++        stats->ierrors += s->ierrors;
++        stats->rx_nombuf += s->rx_nombuf;
++    }
++
++    for (uint16_t i = 0; i < RTE_ETHDEV_QUEUE_STAT_CNTRS && i < dev->data->nb_tx_queues; i++) {
++        struct rte_eth_stats *s = &internal->tx_queues[i].stats;
++
++        if (qstats != NULL) {
++            qstats->q_opackets[i] = s->opackets;
++            qstats->q_obytes[i]   = s->obytes;
++        }
++        stats->opackets += s->opackets;
++        stats->obytes += s->obytes;
++        stats->oerrors += s->oerrors;
++    }
++
++    return 0;
++}
++
++static int
++pflow_stats_reset(struct rte_eth_dev *dev)
++{
++    struct pmd_internals *internal = dev->data->dev_private;
++
++    for (uint16_t i = 0; i < dev->data->nb_rx_queues; i++)
++        memset(&internal->rx_queues[i].stats, 0, sizeof(struct rte_eth_stats));
++
++    for (uint16_t i = 0; i < dev->data->nb_tx_queues; i++)
++        memset(&internal->tx_queues[i].stats, 0, sizeof(struct rte_eth_stats));
++
++    return 0;
++}
++
++static void
++pflow_mac_addr_remove(struct rte_eth_dev *dev __rte_unused, uint32_t index __rte_unused)
++{
++    PMD_LOG(INFO, "Remove MAC address @ %d  for '%s'", index, dev->data->name);
++}
++
++static int
++pflow_mac_addr_add(struct rte_eth_dev *dev __rte_unused,
++                   struct rte_ether_addr *mac_addr __rte_unused, uint32_t index __rte_unused,
++                   uint32_t vmdq __rte_unused)
++{
++    char buff[RTE_RING_NAMESIZE];
++
++    rte_ether_format_addr(buff, sizeof(buff), mac_addr);
++    PMD_LOG(INFO, "Add MAC address @ %d  for '%s' %s", index, dev->data->name, buff);
++
++    return 0;
++}
++
++static int
++pflow_link_update(struct rte_eth_dev *dev __rte_unused, int wait_to_complete __rte_unused)
++{
++    struct pmd_internals *pmd = dev->data->dev_private;
++
++    if (rte_eth_link_get_nowait(pmd->phy_pid, &dev->data->dev_link) < 0)
++        return -1;
++
++    return 0;
++}
++
++static int
++pflow_close(struct rte_eth_dev *dev)
++{
++    struct pflow_queue *r = NULL;
++    int ret;
++
++    PMD_LOG(INFO, "Close '%s' device", dev->data->name);
++    if (rte_eal_process_type() != RTE_PROC_PRIMARY)
++        return 0;
++
++    ret = pflow_stop(dev);
++
++    for (uint16_t i = 0; i < dev->data->nb_rx_queues; i++) {
++        r = dev->data->rx_queues[i];
++        rte_ring_free(r->rng);
++        r = dev->data->tx_queues[i];
++        rte_ring_free(r->rng);
++    }
++    rte_ring_free(pflow_internals[r->pid]->tx_rng);
++
++    /* mac_addrs must not be freed because part of dev_private */
++    dev->data->mac_addrs = NULL;
++
++    return ret;
++}
++
++static int
++pflow_mtu_set(struct rte_eth_dev *dev __rte_unused, uint16_t mtu __rte_unused)
++{
++    return 0;
++}
++
++// clang-format off
++static const struct eth_dev_ops ops = {
++    .dev_close         = pflow_close,
++    .dev_start         = pflow_start,
++    .dev_stop          = pflow_stop,
++    .dev_configure     = pflow_configure,
++    .dev_infos_get     = pflow_dev_info,
++    .rx_queue_setup    = pflow_rx_queue_setup,
++    .tx_queue_setup    = pflow_tx_queue_setup,
++	.dev_set_link_up   = pflow_set_link_up,
++    .dev_set_link_down = pflow_set_link_down,
++	.mtu_set           = pflow_mtu_set,
++    .link_update       = pflow_link_update,
++    .stats_get         = pflow_stats_get,
++    .stats_reset       = pflow_stats_reset,
++    .mac_addr_remove   = pflow_mac_addr_remove,
++    .mac_addr_add      = pflow_mac_addr_add,
++};
++// clang-format on
++
++static int
++do_pflow_ring_setup(const char *dev_name, struct rte_vdev_device *vdev, const uint32_t nb_rx_queues,
++                    const uint32_t nb_tx_queues, struct pmd_params *params)
++{
++    struct rte_eth_dev_data *data = NULL;
++    struct pmd_internals *pmd     = NULL;
++    struct rte_eth_dev *eth_dev   = NULL;
++    struct rte_ring *rng          = NULL;
++    void **rx_queues_local        = NULL;
++    void **tx_queues_local        = NULL;
++    int numa, cc;
++    char name[RTE_RING_NAMESIZE];
++
++    numa = vdev->device.numa_node;
++    if (numa == SOCKET_ID_ANY) {
++        PMD_LOG(WARNING, "NUMA ID is SOCKET_ID_ANY, change to rte_socket_id() or 0");
++        numa = rte_socket_id();
++        if (numa == SOCKET_ID_ANY)
++            numa = 0;
++    }
++    vdev->device.numa_node = 0;
++
++    PMD_LOG(INFO, "Creating '%s' on numa node %u", dev_name, numa);
++
++    cc = snprintf(name, sizeof(name), "%sRxQs", dev_name);
++    if (cc >= (int)sizeof(name)) {
++        rte_errno = ENAMETOOLONG;
++        goto error;
++    }
++
++    rx_queues_local = rte_calloc_socket(name, nb_rx_queues, sizeof(void *), 0, numa);
++    if (rx_queues_local == NULL) {
++        rte_errno = ENOMEM;
++        goto error;
++    }
++
++    cc = snprintf(name, sizeof(name), "%sTxQs", dev_name);
++    if (cc >= (int)sizeof(name)) {
++        rte_errno = ENAMETOOLONG;
++        goto error;
++    }
++
++    tx_queues_local = rte_calloc_socket(name, nb_tx_queues, sizeof(void *), 0, numa);
++    if (tx_queues_local == NULL) {
++        rte_errno = ENOMEM;
++        goto error;
++    }
++
++    /* reserve an ethdev entry and allocate pmd_internals space */
++    eth_dev = rte_eth_vdev_allocate(vdev, sizeof(struct pmd_internals));
++    if (eth_dev == NULL) {
++        rte_errno = ENOSPC;
++        goto error;
++    }
++
++    pflow_internals[eth_dev->data->port_id] = pmd = eth_dev->data->dev_private;
++    pmd->params = *params;        // Copy pmd_params to internal structure
++
++    /* now put it all together
++     * - store EAL device in eth_dev,
++     * - store queue data in internals,
++     * - store numa_node info in eth_dev_data
++     * - point eth_dev_data to internals
++     * - and point eth_dev structure to new eth_dev_data structure
++     */
++
++    eth_dev->device = &vdev->device;
++
++    data            = eth_dev->data;
++    data->rx_queues = rx_queues_local;
++    data->tx_queues = tx_queues_local;
++
++    for (uint16_t qid = 0; qid < nb_rx_queues; qid++) {
++        cc = snprintf(name, sizeof(name), "RX%u", qid);
++        if (cc >= (int)sizeof(name)) {
++            rte_errno = ENAMETOOLONG;
++            goto error;
++        }
++
++        rng = rte_ring_create(name, params->rx_ring_size, params->numa_node,
++                              RING_F_SP_ENQ | RING_F_SC_DEQ);
++        if (rng == NULL)
++            goto error;
++
++        pmd->rx_queues[qid].rng = rng;
++        pmd->rx_queues[qid].pid = -1;
++        pmd->rx_queues[qid].qid = -1;
++        data->rx_queues[qid]    = &pmd->rx_queues[qid];
++    }
++    for (uint16_t qid = 0; qid < nb_tx_queues; qid++) {
++        pmd->tx_queues[qid].pid = -1;
++        pmd->tx_queues[qid].qid = -1;
++        data->tx_queues[qid]    = &pmd->tx_queues[qid];
++    }
++
++    cc = snprintf(name, sizeof(name), "TXRing");
++    if (cc >= (int)sizeof(name)) {
++        rte_errno = ENAMETOOLONG;
++        goto error;
++    }
++
++    rng = rte_ring_create(name, params->tx_ring_size, params->numa_node, 0);
++    if (rng == NULL) {
++        rte_errno = ENOMEM;
++        goto error;
++    }
++    pmd->tx_rng = rng;
++
++    cc = snprintf(name, sizeof(name), "RxMbufs");
++    if (cc >= (int)sizeof(name)) {
++        rte_errno = ENAMETOOLONG;
++        return -1;
++    }
++    pmd->mbufs = rte_calloc_socket(name, pmd->params.burst_cnt, sizeof(void *), RTE_CACHE_LINE_SIZE,
++                                   eth_dev->device->numa_node);
++    if (pmd->mbufs == NULL) {
++        rte_errno = ENOMEM;
++        goto error;
++    }
++
++    data->nb_rx_queues = (uint16_t)nb_rx_queues;
++    data->nb_tx_queues = (uint16_t)nb_tx_queues;
++    data->dev_link     = pmd_link;
++
++    data->mac_addrs     = &pmd->address;
++    data->promiscuous   = 1;
++    data->all_multicast = 1;
++    data->dev_flags |= RTE_ETH_DEV_AUTOFILL_QUEUE_XSTATS;
++
++    eth_dev->dev_ops = &ops;
++    data->numa_node  = params->numa_node;
++
++    /* finally assign rx and tx ops */
++    eth_dev->rx_pkt_burst = pflow_rx;
++    eth_dev->tx_pkt_burst = pflow_tx;
++
++    pmd->params.dev = eth_dev;
++
++    rte_eth_dev_probing_finish(eth_dev);
++
++    return data->port_id;
++
++error:
++    for (uint32_t i = 0; i < nb_rx_queues; i++) {
++        rte_ring_free(pmd->rx_queues[i].rng);
++    }
++    rte_free(rx_queues_local);
++    rte_free(tx_queues_local);
++    rte_ring_free(pmd->tx_rng);
++
++    return -1;
++}
++
++static int
++pflow_ring_create(const char *name, struct rte_vdev_device *vdev, struct pmd_params *params)
++{
++    uint32_t num_rx_rings = RTE_PMD_RING_MAX_RX_RINGS;
++    uint32_t num_tx_rings = RTE_PMD_RING_MAX_TX_RINGS;
++
++    if (do_pflow_ring_setup(name, vdev, num_rx_rings, num_tx_rings, params) < 0) {
++        PMD_LOG(ERR, "Failed to create rings-backed ethdev");
++        return -1;
++    }
++
++    return 0;
++}
++
++static int
++get_uint16(const char *key __rte_unused, const char *value, void *extra_args)
++{
++    if (!value || !extra_args)
++        return -EINVAL;
++
++    *(uint16_t *)extra_args = strtoull(value, NULL, 0);
++
++    return 0;
++}
++
++static int
++pmd_parse_args(struct pmd_params *p, const char *params)
++{
++    struct rte_kvargs *kvlist;
++    int ret = 0;
++
++    if (p == NULL) {
++        PMD_LOG(ERR, "Invalid pmd_params pointer");
++        return -EINVAL;
++    }
++    p->rx_ring_size = DEFAULT_RX_RING_SIZE;
++    p->tx_ring_size = DEFAULT_TX_RING_SIZE;
++    p->burst_cnt    = PFLOW_DEFAULT_BURST_COUNT;
++    p->numa_node    = 0;
++
++    kvlist = rte_kvargs_parse(params, valid_arguments);
++    if (kvlist == NULL) {
++        PMD_LOG(ERR, "Error parsing parameters '%s'", params);
++        return -EINVAL;
++    }
++
++    if (rte_kvargs_count(kvlist, PFLOW_PARAM_RX_RING_SIZE) == 1) {
++        ret = rte_kvargs_process(kvlist, PFLOW_PARAM_RX_RING_SIZE, &get_uint16, &p->rx_ring_size);
++        if (ret < 0)
++            goto free_kvlist;
++    }
++    PMD_LOG(INFO, "Using RX ring size %u", p->rx_ring_size);
++
++    if (rte_kvargs_count(kvlist, PFLOW_PARAM_TX_RING_SIZE) == 1) {
++        ret = rte_kvargs_process(kvlist, PFLOW_PARAM_TX_RING_SIZE, &get_uint16, &p->tx_ring_size);
++        if (ret < 0)
++            goto free_kvlist;
++    }
++    PMD_LOG(INFO, "Using TX ring size %u", p->tx_ring_size);
++
++    if (rte_kvargs_count(kvlist, PFLOW_PARAM_BURST_COUNT) == 1) {
++        ret = rte_kvargs_process(kvlist, PFLOW_PARAM_BURST_COUNT, &get_uint16, &p->burst_cnt);
++        if (ret < 0)
++            goto free_kvlist;
++    }
++    PMD_LOG(INFO, "Using burst count %u", p->burst_cnt);
++
++    rte_kvargs_free(kvlist);
++    return 0;
++free_kvlist:
++    rte_kvargs_free(kvlist);
++    return ret;
++}
++
++static int
++pmd_pflow_probe(struct rte_vdev_device *vdev)
++{
++    const char *name, *params;
++    struct pmd_params p = {0};
++    int ret             = 0;
++
++    name = rte_vdev_device_name(vdev);
++    if (name == NULL) {
++        PMD_LOG(ERR, "Invalid device name");
++        return -EINVAL;
++    }
++    PMD_LOG(INFO, "Probing device pmd_pflow for '%s'...", name);
++
++    params = rte_vdev_device_args(vdev);
++    if (!params) {
++        PMD_LOG(ERR, "No parameters provided for '%s'", name);
++        ret = -EINVAL;
++    } else {
++        ret = pmd_parse_args(&p, params);
++        if (ret)
++            PMD_LOG(ERR, "Failed to parse device '%s' arguments '%s'", name, params);
++        else {
++            ret = pflow_ring_create(name, vdev, &p);
++            if (ret)
++                PMD_LOG(ERR, "Failed to create PFLOW device '%s'", name);
++        }
++    }
++
++    return ret;
++}
++
++static int
++pmd_pflow_remove(struct rte_vdev_device *dev)
++{
++    const char *name            = rte_vdev_device_name(dev);
++    struct rte_eth_dev *eth_dev = NULL;
++
++    PMD_LOG(INFO, "Un-Initializing pmd_pflow for %s", name);
++
++    if (name == NULL)
++        return -EINVAL;
++
++    /* find an ethdev entry */
++    eth_dev = rte_eth_dev_allocated(name);
++    if (eth_dev == NULL)
++        return 0; /* port already released */
++
++    pflow_close(eth_dev);
++    rte_eth_dev_release_port(eth_dev);
++    return 0;
++}
++
++static struct rte_vdev_driver pmd_pflow_drv = {
++    .probe  = pmd_pflow_probe,
++    .remove = pmd_pflow_remove,
++};
++
++RTE_PMD_REGISTER_VDEV(net_pflow, pmd_pflow_drv);
++// clang-format off
++RTE_PMD_REGISTER_PARAM_STRING(net_pflow,
++	PFLOW_PARAM_RX_RING_SIZE "=<rx-ring-size> "
++	PFLOW_PARAM_TX_RING_SIZE "=<tx-ring-size> ");
++// clang-format on
+diff --git a/drivers/net/intel/pflow/rte_pflow.h b/drivers/net/intel/pflow/rte_pflow.h
+new file mode 100644
+index 0000000000..598a595f01
+--- /dev/null
++++ b/drivers/net/intel/pflow/rte_pflow.h
+@@ -0,0 +1,44 @@
++/* SPDX-License-Identifier: BSD-3-Clause
++ * Copyright(c) 2010-2014 Intel Corporation
++ */
++
++#ifndef _RTE_PFLOW_H_
++#define _RTE_PFLOW_H_
++
++#include <stdint.h>
++
++#include <rte_ethdev.h>
++#include <rte_mbuf.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++enum {
++    PFLOW_MAX_VLAN_IDS        = (4 * 1024),
++    PFLOW_MAX_QUEUES          = 256,
++    PFLOW_DEFAULT_BURST_COUNT = 512,
++    PFLOW_HOLD_COUNT          = 128
++};
++
++typedef uint16_t *(*pflow_get_qid_fn)(struct rte_mbuf *m);        // Get Qid from mbuf
++
++typedef struct pflow_conf {
++    uint16_t phy_pid;                // Physical Port ID
++    uint16_t phy_qid;                // Physical Queue ID
++    pflow_get_qid_fn get_fn;         // Function to get the Queue ID
++    rte_rx_callback_fn cb_fn;        // Callback function for RX callback
++    void *cb_arg;                    // Argument for Rx callback routine
++} pflow_conf_t;
++
++int pflow_callback_create(uint16_t pid, pflow_conf_t *cfg);
++
++int pflow_callback_destroy(uint16_t pid);
++
++void pflow_dump(uint16_t pid, uint16_t qid);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* _RTE_PFLOW_H_ */
+diff --git a/drivers/net/meson.build b/drivers/net/meson.build
+index c7dae4ad27..3595ec1989 100644
+--- a/drivers/net/meson.build
++++ b/drivers/net/meson.build
+@@ -34,6 +34,7 @@ drivers = [
+         'intel/ipn3ke',
+         'intel/ixgbe',
+         'intel/cpfl',  # depends on idpf, so must come after it
++        'intel/pflow',
+         'ionic',
+         'mana',
+         'memif',
+--
+2.51.0
+

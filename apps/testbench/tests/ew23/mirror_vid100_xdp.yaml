@@ -1,0 +1,49 @@
+---
+#
+# Copyright (C) 2023 Linutronix GmbH
+# Author Kurt Kanzenbach <kurt@linutronix.de>
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# Sample reference YAML configuration file for Intel i225 NIC(s).
+#
+Application:
+  ApplicationClockId: CLOCK_TAI
+  # ApplicationBaseStartTimeNS: 0
+  ApplicationBaseCycleTimeNS: 1000000
+  ApplicationTxBaseOffsetNS: 700000
+  ApplicationRxBaseOffsetNS: 300000
+  ApplicationXdpProgram: xdp_kern_profinet_vid100.o
+TSNHigh:
+  TsnHighEnabled: true
+  TsnHighXdpEnabled: true
+  TsnHighXdpSkbMode: false
+  TsnHighXdpZcMode: true
+  TsnHighXdpWakeupMode: true
+  TsnHighTxTimeEnabled: false
+  TsnHighTxTimeOffsetNS: 0
+  TsnHighVid: 100
+  TsnHighNumFramesPerCycle: 1
+  TsnHighPayloadPattern: |
+    TsnHighPayloadPattern
+  TsnHighFrameLength: 128
+  TsnHighRxQueue: 0
+  TsnHighTxQueue: 0
+  TsnHighSocketPriority: 7
+  TsnHighTxThreadPriority: 98
+  TsnHighRxThreadPriority: 98
+  TsnHighTxThreadCpu: 1
+  TsnHighRxThreadCpu: 1
+  TsnHighInterface: enp88s0
+  TsnHighDestination: 48:21:0b:26:3f:42
+Log:
+  LogThreadPeriodNS: 500000000
+  LogThreadPriority: 1
+  LogThreadCpu: 0
+  LogFile: /var/log/mirror_vid100.log
+  LogLevel: Info
+Debug:
+  DebugStopTraceOnOutlier: false
+  DebugStopTraceOnError: false
+  DebugMonitorMode: false
+  DebugMonitorDestination: 44:44:44:44:44:44

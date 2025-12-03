@@ -1,0 +1,88 @@
+From 9eb297f7501eaa3e0bb25630f5479deda2266a75 Mon Sep 17 00:00:00 2001
+From: Song Yoong Siang <yoong.siang.song@intel.com>
+Date: Thu, 13 Nov 2025 10:46:08 +0800
+Subject: [PATCH] net/e1000: force allocation of context descriptor for igc
+ launch time
+
+When the timestamp dynamic flag is set in the mbuf offload flags, force
+allocation of a new context descriptor. The launch time feature requires a
+dedicated context descriptor to specify the desired launch time for packet.
+
+Testing was performed on two Intel ADL-S platforms with i226 NICs
+connected back-to-back. A DPDK sample application is created to send two
+bursts of packets with 100,000 nanosecond burst interval. Each burst is
+having 5 UDP packets and only the first packet in the burst using launch
+time feature. Meanwhile, the tcpdump command below is used on the link
+partner to capture the delta of Rx hardware timestamp of the 10 packets:
+
+tcpdump -ttt -ni enp1s0 --time-stamp-precision=nano -j adapter_unsynced
+
+Without this patch, packets of second burst are transmitted immediately as
+the driver din't create context descriptor for the launch time, as shown
+in tcpdump log below:
+
+  00:00:00.000000000 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008381 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008387 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008381 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008387 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+
+With this patch, packets of second burst are properly held until the
+intended 100,000 nanosecond intervals, demonstrating correct launch time
+behavior. As shown in tcpdump log below, the delta of first packet
+between first and second bursts is 8387 + 8384 + 8384 + 8384 + 66461 =
+100,000 nanosecond.
+
+  00:00:00.000000000 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008387 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000066461 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008387 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+  00:00:00.000008384 IP 192.168.1.100.2 > 224.1.1.1.5: UDP, length 982
+
+Fixes: 9630f7c71ecd ("net/igc: enable launch time offloading")
+Cc: stable@dpdk.org
+
+Signed-off-by: David Zage <david.zage@intel.com>
+Signed-off-by: Song Yoong Siang <yoong.siang.song@intel.com>
+---
+ drivers/net/intel/e1000/igc_txrx.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/intel/e1000/igc_txrx.c b/drivers/net/intel/e1000/igc_txrx.c
+index f2a6c34094..35f36d266a 100644
+--- a/drivers/net/intel/e1000/igc_txrx.c
++++ b/drivers/net/intel/e1000/igc_txrx.c
+@@ -1416,6 +1416,10 @@ what_advctx_update(struct igc_tx_queue *txq, uint64_t flags,
+ {
+ 	uint32_t curr = txq->ctx_curr;
+ 
++	/* Launch time feature always need a new context descriptor */
++	if (flags & igc_tx_timestamp_dynflag)
++		return IGC_CTX_NUM;
++
+ 	/* If match with the current context */
+ 	if (likely(txq->ctx_cache[curr].flags == flags &&
+ 		txq->ctx_cache[curr].tx_offload.data ==
+@@ -1621,7 +1625,8 @@ igc_xmit_pkts(void *tx_queue, struct rte_mbuf **tx_pkts, uint16_t nb_pkts)
+ 		tx_last = (uint16_t)(tx_id + tx_pkt->nb_segs - 1);
+ 
+ 		ol_flags = tx_pkt->ol_flags;
+-		tx_ol_req = ol_flags & IGC_TX_OFFLOAD_MASK;
++		tx_ol_req = ol_flags & (IGC_TX_OFFLOAD_MASK |
++				igc_tx_timestamp_dynflag);
+ 
+ 		/* If a Context Descriptor need be built . */
+ 		if (tx_ol_req) {
+-- 
+2.50.1 (Apple Git-155)
+

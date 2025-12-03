@@ -1,0 +1,90 @@
+name: rt-stats
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    container_name: mosquitto
+    restart: always
+    ports:
+      - "1883:1883" # MQTT
+      - "9001:9001" # WebSockets
+    networks:
+      - stats
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    cpuset: ${TELEM_CPU:-0}
+
+  influxdb:
+    image: influxdb:1.8-alpine
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    container_name: influxdb
+    restart: always
+    ports:
+      - "8086:8086"
+    networks:
+      - stats
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+      - ./influxdb.conf:/etc/influxdb/influxdb.conf:ro
+    environment:
+      - INFLUXDB_DB="ratt"
+    security_opt:
+      - no-new-privileges:true
+    cpuset: ${TELEM_CPU:-0}
+
+  telegraf:
+    environment:
+      - no_proxy=127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,influxdb,telegraf,grafana,mosquitto"
+    image: telegraf
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    container_name: telegraf
+    restart: always
+    volumes:
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    depends_on:
+      - mosquitto
+      - influxdb
+    networks:
+      - stats
+    cpuset: ${TELEM_CPU:-0}
+
+  grafana:
+    environment:
+      - no_proxy=127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,influxdb,telegraf,grafana,mosquitto"
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=passme
+    image: grafana/grafana
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    container_name: grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    networks:
+      - stats
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
+      - ./grafana.ini:/etc/grafana/grafana.ini
+    depends_on:
+      - influxdb
+    cpuset: ${TELEM_CPU:-0}
+
+networks:
+  stats:
+
+volumes:
+  grafana-data:
+  influxdb-data:

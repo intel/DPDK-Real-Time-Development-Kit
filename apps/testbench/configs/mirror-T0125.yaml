@@ -1,0 +1,160 @@
+---
+#
+# Copyright (C) 2024 Linutronix GmbH
+# Author Kurt Kanzenbach <kurt@linutronix.de>
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# Sample reference YAML configuration file for Intel Comet Lake platforms with
+# i225 NIC(s).
+#
+Application:
+  ApplicationClockId: CLOCK_TAI
+#  ApplicationBaseCycleTimeNS: 250000
+#  ApplicationTxBaseOffsetNS:  200000
+#  ApplicationRxBaseOffsetNS:  150000
+  ApplicationBaseCycleTimeNS: 125000
+  ApplicationTxBaseOffsetNS:  100000
+  ApplicationRxBaseOffsetNS:   75000
+  ApplicationNumMbufs: 0
+  ApplicationMbufSize: 0
+  ApplicationCacheSize: 0
+  ApplicationNumRxDescriptors: 0
+  ApplicationNumTxDescriptors: 0
+  ApplicationLinkSpeed: 0 # 0=AutoNeg or link speed in Mbps 100, 1000, 2500, 10000, 100000, etc.
+  ApplicationLinkHalfDuplex: false # false=full duplex, true=half duplex for 10Mbps or 100Mbps
+  ApplicationWaitTimeSeconds: 0 # Need to be 8 or higher as a power of 2, default: 8
+Log:
+  LogThreadPeriodNS: 500000000
+  LogThreadPriority: 1
+  LogThreadCpu: 15
+  LogFile: /var/log/mirror-T125.log
+  LogLevel: Info
+LogViaMQTT:
+   LogViaMQTT: false
+   LogViaMQTTThreadCpu: 16
+   LogViaMQTTThreadPriority: 1
+   LogViaMQTTThreadPeriodNS: 1000000
+   LogViaMQTTBrokerIP: 127.0.0.1
+   LogViaMQTTBrokerPort: 1883
+   LogViaMQTTMeasurementName: reference
+PKTHandler:
+  PktHandlerEnabled: true
+  PktHandlerPhysicalLPortID: 0:0
+  PktHandlerLPortID: 1:0
+  PktHandlerThreadCpu: 17
+TSNHigh:
+  TsnHighEnabled: true
+  TsnHighTxTimeEnabled: false
+  TsnHighTxTimeOffsetNS: 0
+  TsnHighVid: 100
+  TsnHighNumFramesPerCycle: 1
+  TsnHighPayloadPattern: |
+    TsnHighPayloadPattern
+  TsnHighFrameLength: 128
+  TsnHighLPortID: 1:1
+  TsnHighThreadCpu: 18
+  TsnHighDestination: 6c:fe:54:a0:84:f0
+TSNLow:
+  TsnLowEnabled: true
+  TsnLowTxTimeEnabled: false
+  TsnLowTxTimeOffsetNS: 0
+  TsnLowVid: 101
+  TsnLowNumFramesPerCycle: 1
+  TsnLowPayloadPattern: |
+    TsnLowPayloadPattern
+  TsnLowFrameLength: 128
+  TsnLowLPortID: 1:2
+  TsnLowThreadCpu: 19
+  TsnLowDestination: 6c:fe:54:a0:84:f0
+RTC:
+  RtcEnabled: true
+  RtcVid: 102
+  RtcNumFramesPerCycle: 1
+  RtcPayloadPattern: |
+    RtcPayloadPattern
+  RtcFrameLength: 128
+  RtcLPortID: 1:3
+  RtcThreadCpu: 20
+  RtcDestination: 6c:fe:54:a0:84:f0
+RTA:
+  RtaEnabled: true
+  RtaVid: 103
+  RtaBurstPeriodNS: 200000000
+  RtaNumFramesPerCycle: 1
+  RtaPayloadPattern: |
+    RtaPayloadPattern
+  RtaFrameLength: 200
+  RtaLPortID: 1:4
+  RtaThreadCpu: 21
+  RtaDestination: 6c:fe:54:a0:84:f0
+DCP:
+  DcpEnabled: true
+  DcpVid: 104
+  DcpBurstPeriodNS: 2000000000
+  DcpNumFramesPerCycle: 1
+  DcpPayloadPattern: |
+    DcpPayloadPattern
+  DcpFrameLength: 200
+  DcpLPortID: 1:5
+  DcpThreadCpu: 22
+  DcpDestination: 6c:fe:54:a0:84:f0
+LLDP:
+  LldpEnabled: true
+  LldpBurstPeriodNS: 5000000000
+  LldpNumFramesPerCycle: 1
+  LldpPayloadPattern: |
+    LldpPayloadPattern
+  LldpFrameLength: 200
+  LldpLPortID: 1:6
+  LldpThreadCpu: 23
+  LldpDestination: 01:80:c2:00:00:0e
+UDPHigh:
+  UdpHighEnabled: true
+  UdpHighBurstPeriodNS: 1000000000
+  UdpHighNumFramesPerCycle: 1
+  UdpHighPayloadPattern: |
+    UdpHighPayloadPattern
+  UdpHighFrameLength: 1400
+  UdpHighLPortID: 1:7
+  UdpHighThreadCpu: 24
+  UdpHighPort: 6666
+  UdpHighSrcPort: 7777
+  UdpHighDestination: 10.10.1.1
+  UdpHighSource: 10.10.1.2
+  UdpHighMacDestination: 6c:fe:54:a0:84:f0
+UDPLow:
+  UdpLowEnabled: true
+  UdpLowBurstPeriodNS: 1000000000
+  UdpLowNumFramesPerCycle: 1
+  UdpLowPayloadPattern: |
+    UdpLowPayloadPattern
+  UdpLowFrameLength: 1400
+  UdpLowLPortID: 1:8
+  UdpLowThreadCpu: 25
+  UdpLowPort: 6667
+  UdpLowSrcPort: 7778
+  UdpLowDestination: 10.10.1.1
+  UdpLowSource: 10.10.1.2
+  UdpLowMacDestination: 6c:fe:54:a0:84:f0
+L2:
+  L2Enabled: true
+  L2TxTimeEnabled: false
+  L2TxTimeOffsetNS: 300000
+  L2Vid: 400
+  L2Pcp: 6
+  L2EtherType: 0x22f1
+  L2NumFramesPerCycle: 1
+  L2PayloadPattern: |
+    L2PayloadPattern
+  L2FrameLength: 128
+  L2LPortID: 1:9
+  L2ThreadCpu: 26
+  L2Destination: 6c:fe:54:a0:84:f0
+Stats:
+  StatsHistogramEnabled: false
+Debug:
+  DebugStopTraceOnOutlier: false
+  DebugStopTraceOnError: false
+  DebugMonitorMode: false
+  DebugMonitorDestination: 44:44:44:44:44:44

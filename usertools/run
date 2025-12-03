@@ -1,0 +1,45 @@
+#!/bin/bash
+#
+dir=`pwd`
+
+# Running from top level directory
+abs_path=${dir}/external/install/lib/x86_64-linux-gnu
+
+# Running from one level down from top level say usertools directory
+rel_path=${dir}/../external/install/lib/x86_64-linux-gnu
+
+# Running from the apps/<tool> directory
+rel_path2=${dir}/../../external/install/lib/x86_64-linux-gnu
+
+ld_paths=${abs_path}:${rel_path}:${rel_path2}
+
+# Check if first argument looks like an application name (not a path and not an option)
+if [ $# -gt 0 ] && [[ ! "$1" =~ ^[./-] ]] && [[ ! "$1" =~ ^- ]]; then
+    app_name="$1"
+
+    # Check if application exists in current directory
+    if [ ! -f "$app_name" ] && [ ! -x "$app_name" ]; then
+        # Try to find it in builddir/apps directory
+        # First, find the project root (where builddir exists)
+        project_root="${dir}"
+        if [ ! -d "${project_root}/builddir" ]; then
+            project_root="${dir}/.."
+            if [ ! -d "${project_root}/builddir" ]; then
+                project_root="${dir}/../.."
+            fi
+        fi
+
+        # Search for the application in builddir/apps
+        if [ -d "${project_root}/builddir/apps" ]; then
+            found_app=$(find "${project_root}/builddir/apps" -type f -name "$app_name" -executable 2>/dev/null | head -n 1)
+            if [ -n "$found_app" ]; then
+                # Replace first argument with the found path
+                shift
+                set -- "$found_app" "$@"
+            fi
+        fi
+    fi
+fi
+
+echo sudo LD_LIBRARY_PATH=${ld_paths} "$@"
+sudo LD_LIBRARY_PATH=${ld_paths} "$@"

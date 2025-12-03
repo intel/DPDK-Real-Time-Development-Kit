@@ -1,0 +1,52 @@
+---
+#
+# Copyright (C) 2022 Linutronix GmbH
+# Author Kurt Kanzenbach <kurt@linutronix.de>
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# Sample OPC/UA PubSub mirror YAML configuration file for Intel TSN NICs.
+#
+Application:
+  ApplicationClockId: CLOCK_TAI
+  # ApplicationBaseStartTimeNS: 0
+  ApplicationBaseCycleTimeNS: 1000000
+  ApplicationTxBaseOffsetNS: 800000
+  ApplicationRxBaseOffsetNS: 600000
+  ApplicationXdpProgram: xdp_kern_opcua_vid300.o
+L2:
+  L2Name: OpcUa
+  L2Enabled: true
+  L2XdpEnabled: false
+  L2XdpSkbMode: false
+  L2XdpZcMode: true
+  L2XdpWakeupMode: false
+  L2TxTimeEnabled: true
+  L2TxTimeOffsetNS: 200000
+  L2Vid: 300
+  L2Pcp: 6
+  L2EtherType: 0xb62c
+  L2NumFramesPerCycle: 8
+  L2PayloadPattern: |
+    OpcUaPayloadPattern
+  L2FrameLength: 128
+  L2RxQueue: 7
+  L2TxQueue: 7
+  L2SocketPriority: 7
+  L2TxThreadPriority: 98
+  L2RxThreadPriority: 98
+  L2TxThreadCpu: 1
+  L2RxThreadCpu: 1
+  L2Interface: enp0s29f2
+  L2Destination: 4e:e4:85:53:c8:79
+Log:
+  LogThreadPeriodNS: 500000000
+  LogThreadPriority: 1
+  LogThreadCpu: 1
+  LogFile: /var/log/mirror_opcua_vid300.log
+  LogLevel: Info
+Debug:
+  DebugStopTraceOnOutlier: false
+  DebugStopTraceOnError: false
+  DebugMonitorMode: false
+  DebugMonitorDestination: 44:44:44:44:44:44

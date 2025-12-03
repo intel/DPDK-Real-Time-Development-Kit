@@ -1,0 +1,207 @@
+---
+#
+# Copyright (C) 2024 Linutronix GmbH
+# Author Kurt Kanzenbach <kurt@linutronix.de>
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# Sample reference YAML configuration file for Intel Comet Lake platforms with
+# i225 NIC(s).
+#
+Application:
+  ApplicationClockId: CLOCK_TAI
+  # ApplicationBaseStartTimeNS: 0
+  ApplicationBaseCycleTimeNS: 1000000
+  ApplicationTxBaseOffsetNS: 800000
+  ApplicationRxBaseOffsetNS: 300000
+  ApplicationXdpProgram: xdp_kern_profinet_vid100.o
+Log:
+  LogThreadPeriodNS: 500000000
+  LogThreadPriority: 1
+  LogThreadCpu: 29
+  LogFile: /var/log/mirror_vid100.log
+  LogLevel: Debug
+TSNHigh:
+  TsnHighEnabled: true
+  TsnHighTxTimeEnabled: false
+  TsnHighTxTimeOffsetNS: 0
+  TsnHighVid: 100
+  TsnHighNumFramesPerCycle: 5
+  TsnHighPayloadPattern: |
+    TsnHighPayloadPattern
+  TsnHighFrameLength: 128
+  TsnHighPortID: 0
+  TsnHighQueueID: 0
+  TsnHighNumMbufs: 1024
+  TsnHighMbufSize: 0
+  TsnHighCacheSize: 128
+  TsnHighSocketPriority: 7
+  TsnHighTxThreadPriority: 98
+  TsnHighRxThreadPriority: 98
+  TsnHighThreadCpu: 30
+  TsnHighInterface: enp134s0f0np0
+  TsnHighDestination: 52:1c:78:4a:a2:e0
+TSNLow:
+  TsnLowEnabled: true
+  TsnLowTxTimeEnabled: false
+  TsnLowTxTimeOffsetNS: 0
+  TsnLowVid: 100
+  TsnLowNumFramesPerCycle: 5
+  TsnLowPayloadPattern: |
+    TsnLowPayloadPattern
+  TsnLowFrameLength: 128
+  TsnLowPortID: 0
+  TsnLowQueueID: 1
+  TsnLowNumMbufs: 1024
+  TsnLowMbufSize: 0
+  TsnLowCacheSize: 128
+  TsnLowSocketPriority: 6
+  TsnLowTxThreadPriority: 98
+  TsnLowRxThreadPriority: 98
+  TsnLowThreadCpu: 31
+  TsnLowInterface: enp134s0f0np0
+  TsnLowDestination: 52:1c:78:4a:a2:e0
+RTC:
+  RtcEnabled: true
+  RtcVid: 100
+  RtcNumFramesPerCycle: 5
+  RtcPayloadPattern: |
+    RtcPayloadPattern
+  RtcFrameLength: 128
+  RtcPortID: 0
+  RtcQueueID: 2
+  RtcNumMbufs: 1024
+  RtcMbufSize: 0
+  RtcCacheSize: 128
+  RtcSocketPriority: 5
+  RtcTxThreadPriority: 98
+  RtcRxThreadPriority: 98
+  RtcThreadCpu: 32
+  RtcInterface: enp134s0f0v0
+  RtcDestination: 52:1c:78:4a:a2:e0
+RTA:
+  RtaEnabled: true
+  RtaVid: 100
+  RtaBurstPeriodNS: 200000000
+  RtaNumFramesPerCycle: 5
+  RtaPayloadPattern: |
+    RtaPayloadPattern
+  RtaFrameLength: 200
+  RtaPortID: 0
+  RtaQueueID: 3
+  RtaNumMbufs: 1024
+  RtaMbufSize: 0
+  RtaCacheSize: 128
+  RtaSocketPriority: 4
+  RtaTxThreadPriority: 97
+  RtaRxThreadPriority: 97
+  RtaThreadCpu: 33
+  RtaInterface: enp134s0f0np0
+  RtaDestination: 52:1c:78:4a:a2:e0
+DCP:
+  DcpEnabled: true
+  DcpVid: 100
+  DcpBurstPeriodNS: 2000000000
+  DcpNumFramesPerCycle: 5
+  DcpPayloadPattern: |
+    DcpPayloadPattern
+  DcpFrameLength: 200
+  DcpPortID: 0
+  DcpQueueID: 3
+  DcpNumMbufs: 1024
+  DcpMbufSize: 0
+  DcpCacheSize: 128
+  DcpSocketPriority: 3
+  DcpTxThreadPriority: 53
+  DcpRxThreadPriority: 53
+  DcpThreadCpu: 34
+  DcpInterface: enp134s0f0np0
+  DcpDestination: 52:1c:78:4a:a2:e0
+LLDP:
+  LldpEnabled: false
+  LldpBurstPeriodNS: 5000000000
+  LldpNumFramesPerCycle: 0
+  LldpPayloadPattern: |
+    LldpPayloadPattern
+  LldpFrameLength: 200
+  LldpPortID: 0
+  LldpQueueID: 3
+  LldpNumMbufs: 1024
+  LldpMbufSize: 0
+  LldpCacheSize: 128
+  LldpSocketPriority: 3
+  LldpTxThreadPriority: 52
+  LldpRxThreadPriority: 52
+  LldpThreadCpu: 35
+  LldpInterface: enp134s0f0np0
+  LldpDestination: 01:80:c2:00:00:0e
+UDPHigh:
+  UdpHighEnabled: true
+  UdpHighBurstPeriodNS: 1000000000
+  UdpHighNumFramesPerCycle: 5
+  UdpHighPayloadPattern: |
+    UdpHighPayloadPattern
+  UdpHighFrameLength: 1400
+  UdpHighPortID: 0
+  UdpHighQueueID: 3
+  UdpHighNumMbufs: 1024
+  UdpHighMbufSize: 0
+  UdpHighCacheSize: 128
+  UdpHighSocketPriority: 3
+  UdpHighTxThreadPriority: 51
+  UdpHighRxThreadPriority: 51
+  UdpHighThreadCpu: 36
+  UdpHighInterface: enp134s0f0np0
+  UdpHighPort: 6666
+  UdpHighDestination: 10.10.1.1
+  UdpHighSource: 10.10.1.2
+UDPLow:
+  UdpLowEnabled: true
+  UdpLowBurstPeriodNS: 1000000000
+  UdpLowNumFramesPerCycle: 5
+  UdpLowPayloadPattern: |
+    UdpLowPayloadPattern
+  UdpLowFrameLength: 1400
+  UdpLowPortID: 0
+  UdpLowQueueID: 3
+  UdpLowNumMbufs: 1024
+  UdpLowMbufSize: 0
+  UdpLowCacheSize: 128
+  UdpLowSocketPriority: 3
+  UdpLowTxThreadPriority: 51
+  UdpLowRxThreadPriority: 51
+  UdpLowThreadCpu: 37
+  UdpLowInterface: enp134s0f0np0
+  UdpLowPort: 6667
+  UdpLowDestination: 10.10.1.1
+  UdpLowSource: 10.10.1.2
+L2:
+  L2Name: L2
+  L2Enabled: false
+  L2TxTimeEnabled: true
+  L2TxTimeOffsetNS: 300000
+  L2Vid: 400
+  L2Pcp: 6
+  L2EtherType: 0x22f1
+  L2NumFramesPerCycle: 8
+  L2PayloadPattern: |
+    L2PayloadPattern
+  L2FrameLength: 128
+  L2PortID: 0
+  L2QueueID: 3
+  L2hNumMbufs: 1024
+  L2MbufSize: 0
+  L2CacheSize: 128
+  L2SocketPriority: 7
+  L2TxThreadPriority: 97
+  L2RxThreadPriority: 97
+  L2ThreadCpu: 38
+  L2Interface: enp134s0f0np0
+  L2Destination: 52:1c:78:4a:a2:e0
+Stats:
+  StatsHistogramEnabled: true
+Debug:
+  DebugStopTraceOnOutlier: false
+  DebugStopTraceOnError: false
+  DebugMonitorMode: false
+  DebugMonitorDestination: 44:44:44:44:44:44
