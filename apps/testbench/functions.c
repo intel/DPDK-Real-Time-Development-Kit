@@ -66,6 +66,7 @@ int function_launch_all(void)
 		if (!fn->valid || !fn->launch_fn)
 			continue;
 
+		printf(">>> Launching Function index %3d: '%s'\n", fn->thread_idx, fn->name);
 		if (fn->launch_fn(fn->thread_ctx))
 			rte_exit(EXIT_FAILURE, "@@@ Error launching Function index %3d: '%s'\n",
 				 fn->thread_idx, fn->name);

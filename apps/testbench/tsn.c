@@ -508,6 +508,7 @@ print_stats(void)
         cpos(row++, 1);
         printf("%-*s|", TITLE_WIDTH, stats_titles[i]);
     }
+    printf("\n     [Press q to quit, c to clear screen, r to reset stats]\n");
 
     row = saved_row;
     col = TITLE_WIDTH + 2;
@@ -532,8 +533,6 @@ print_stats(void)
     }
 
     printf("\n");
-
-    printf("     [Press q to quit, c to clear screen, r to reset stats]\n");
 
     fflush(stdout);
 }
@@ -667,14 +666,18 @@ main(int argc, char *argv[])
 
     printf(">> %s mode selected\n", mirror_mode ? "Mirror" : "Reference");
 
+	printf(">> TSN Testbench Startup Version: %s\n", VERSION);
     tsn_startup();
 
+	printf(">> Configuring lports...\n");
     tsn_configure_lports();
 
     // wait_sync_time(app_config.application_wait_time_before_start);
 
+	printf(">> Launching TSN Testbench...\n");
     tsn_launch();
 
+	printf(">> TSN Testbench Running keyboard...\n");
     keyboard();
 
     tsn_shutdown();

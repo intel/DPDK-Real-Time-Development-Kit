@@ -139,7 +139,7 @@ UDPLow:
   UdpHighSource: 10.10.1.1
   UdpLowMacDestination: 6c:fe:54:a0:86:80
 L2:
-  L2Enabled: true
+  L2Enabled: false
   L2TxTimeEnabled: false
   L2TxTimeOffsetNS: 300000
   L2Vid: 400

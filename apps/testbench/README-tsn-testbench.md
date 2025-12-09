@@ -225,7 +225,7 @@ For optimal real-time performance:
 5. **Configure PTP** for time synchronization:
 
    ```bash
-   sudo ptp4l -i eth0 -m -s -H
+   sudo scripts/ptp.sh eth0 # Start PTP on eth0 or i226 interface
    ```
 
 6. **Set thread priorities** in YAML configuration files
