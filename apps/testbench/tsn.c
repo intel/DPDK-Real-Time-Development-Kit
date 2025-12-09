@@ -369,7 +369,7 @@ print_stats(void)
     static struct rte_eth_stats prev_stats[2] = {0};
     static int count                          = 0;
     struct timespec current_time;
-    int row, col, saved_row;
+    int row, col, saved_row, last_row;
     char time_str[64];
     // clang-format off
 	const char *tsn_titles[] = {
@@ -509,6 +509,7 @@ print_stats(void)
         printf("%-*s|", TITLE_WIDTH, stats_titles[i]);
     }
     printf("\n     [Press q to quit, c to clear screen, r to reset stats]\n");
+	last_row = row;
 
     row = saved_row;
     col = TITLE_WIDTH + 2;
@@ -533,6 +534,7 @@ print_stats(void)
     }
 
     printf("\n");
+    cpos(last_row, 0);
 
     fflush(stdout);
 }

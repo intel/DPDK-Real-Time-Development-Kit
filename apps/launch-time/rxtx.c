@@ -77,7 +77,11 @@ rx_timestamping(lcore_t *lcore, uint16_t pid, uint16_t qid)
         if (likely(to_recv == 0)) {
             lcore->stats.total_pkts.rx += total_rx;
 
-            curr_ns = clock_get_ns();
+			// Check only the first packet for timestamp data else use system clock
+            if (mbufs[0]->ol_flags & pinfo->rx_timestamp_flag)
+                curr_ns = *RTE_MBUF_DYNFIELD(mbufs[0], pinfo->rx_timestamp_offset, uint64_t *);
+            else
+                curr_ns = clock_get_ns();
             if (prev_rx == 0)
                 prev_rx = curr_ns;
             else {
