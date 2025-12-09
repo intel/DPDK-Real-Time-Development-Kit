@@ -1,6 +1,8 @@
 # Linux TSN Testbench
-# (01/06/2025 Ported to DPDK, which changed a lot of code)
-#  Original Repo: https://github.com/Linutronix/TSN-Testbench.git
+
+## (01/06/2025 Ported to DPDK, which changed a lot of code)
+
+## Original Repo: <https://github.com/Linutronix/TSN-Testbench.git>
 
 ## About
 
@@ -61,9 +63,9 @@ applications utilizing XDP.
 
 ## Resources
 
-Project home: https://github.com/Linutronix/TSN-Testbench
+Project home: <https://github.com/Linutronix/TSN-Testbench>
 
-Project documentation: https://linutronix.github.io/TSN-Testbench
+Project documentation: <https://linutronix.github.io/TSN-Testbench>
 
 Contribution: See [CONTRIBUTING](https://github.com/Linutronix/TSN-Testbench/blob/main/CONTRIBUTING.md)
 
@@ -136,7 +138,7 @@ The following list contains ideas for further development:
 
 The documentation includes information on how to build, use and run the Linux
 TSN `Testbench`. The documentation is available at
-https://linutronix.github.io/TSN-Testbench
+<https://linutronix.github.io/TSN-Testbench>
 
 ## Credits
 

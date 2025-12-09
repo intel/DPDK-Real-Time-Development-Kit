@@ -1,29 +1,37 @@
-# Launch-time Application Testing Tool (LTTT)
+# Real-Time Development Kit (RTDK)
 
 <img src="./figures/launch-time.png" width="250" alt="LTTT Logo">
 
-The Launch-time Application Testing Tool (LTTT) is a comprehensive framework designed to measure network and compute performance of real-time applications across diverse environments. It provides developers with a suite of utilities and configurations to ensure their applications meet the stringent performance requirements of real-time systems.
+The Real-Time Development Kit (RTDK) is a comprehensive framework designed to measure network and compute performance of real-time applications across diverse environments. It provides developers with a suite of utilities and configurations to ensure their applications meet the stringent performance requirements of real-time systems.
 
-LTTT comprises three core components: a primary DPDK application, an automated test case framework, and a Docker Compose configuration that enables statistical visualization through Grafana. While traditional DPDK applications are typically optimized for maximum throughput, LTTT distinguishes itself by prioritizing ultra-low latency performance.
+RTDK comprises three core components: a primary DPDK application, an automated test case framework, and a Docker Compose configuration that enables statistical visualization through Grafana. While traditional DPDK applications are typically optimized for maximum throughput, RTDK distinguishes itself by prioritizing ultra-low latency performance.
+
+The RTDK build system has been enhanced to automatically clone, patch, build, and install DPDK from source into a local directory within the project. This ensures that all developers use the same DPDK version with the necessary patches applied, eliminating discrepancies caused by differing system-installed DPDK versions.
+
+The repository includes three main applications:
+
+- **Real-time Application Testing Tool (RATT)**: A utility for real-time application testing and telemetry.
+- **Launch-Time Testing Tool (LTTT)**: A DPDK-based application for precise packet transmission and reception timing.
+- **TSN Testbench (TSN-TestBench)**: A Linux-based application for evaluating Time-Sensitive Networking (TSN) performance.
 
 ## Features
 
-- **Comprehensive Platform Support**: LTTT operates seamlessly across multiple deployment environments, including bare metal servers, VMware virtualized infrastructure, and cloud platforms, ensuring consistent testing capabilities regardless of your infrastructure setup.
+- **Comprehensive Platform Support**: RTDK operates seamlessly across multiple deployment environments, including bare metal servers, VMware virtualized infrastructure, and cloud platforms, ensuring consistent testing capabilities regardless of your infrastructure setup.
 - **Streamlined Configuration Management**: Effortlessly create, manage, and deploy tailored configurations for diverse testing scenarios, enabling rapid adaptation to different performance requirements and test conditions.
-- **Real-time Performance Monitoring & Diagnostics**: Continuously monitor application performance with visibility into system bottlenecks and optimization opportunities. LTTT's analytics help identify issues across the entire stack including:
+- **Real-time Performance Monitoring & Diagnostics**: Continuously monitor application performance with visibility into system bottlenecks and optimization opportunities. RTDK's analytics help identify issues across the entire stack including:
 - **Hardware-level problems**: High PCIe read latency, memory bandwidth constraints, etc,
 - **Firmware misconfigurations**: ASPM (Active State Power Management) settings, power management policies, etc.
 - **OS-level issues**: Incorrect CPU core isolation, sub-optimal interrupt handling, scheduler conflicts, etc.
 
 ## Getting Started
 
-### Download and Install LTTT
+### Download and Install RTDK
 
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/intel-innersource/applications.dpdk.rt.launch-time.git lttt
-   cd lttt
+   git clone https://github.com/intel-innersource/applications.dpdk.rt.rtdk.git rtdk
+   cd rtdk
    ```
 
 2. Build the application:
@@ -31,7 +39,7 @@ LTTT comprises three core components: a primary DPDK application, an automated t
    The build system automatically clones, patches, builds, and installs DPDK from source into the `external/install` directory. This ensures you're using the correct DPDK version with all required patches applied.
 
    ```bash
-   # Build everything (DPDK + LTTT)
+   # Build everything (DPDK + RATT + Launch-Time + other apps)
    make
 
    # Debug build
@@ -48,6 +56,7 @@ LTTT comprises three core components: a primary DPDK application, an automated t
    **Note:** The first build will take longer as it clones and builds DPDK. Subsequent builds will be faster as DPDK is already built.
 
    **Alternative: Direct Meson/Ninja usage:**
+
    ```bash
    # First, ensure DPDK is installed in external/install
    make dpdk
