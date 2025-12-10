@@ -112,13 +112,13 @@ rxtx_routine(void *arg)
     }
     sleep_sec(pinfo->delay_sec);        // Wait for specified delay before starting the test
 
-    tx_begin_ns = clock_get_ns() + pinfo->cycle_time_ns;
+    tx_begin_ns = clock_get_ns() + pinfo->launch_interval_ns;
 
     /* Run until the application has stopped or been killed. */
     while (is_running()) {
         /* Wait until the next cycle time */
-        if (clock_get_ns() >= (tx_begin_ns - TX_BURST_TIME_NS)) {
-            tx_begin_ns += pinfo->cycle_time_ns;
+        if (clock_get_ns() >= (tx_begin_ns - pinfo->tx_burst_offset_ns)) {
+            tx_begin_ns += pinfo->launch_interval_ns;
 
             if (tx_func(lcore, pid, qid))
                 rte_exit(EXIT_FAILURE, "failed to send packets on port %u", lport->pid);

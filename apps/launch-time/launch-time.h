@@ -60,7 +60,7 @@ typedef struct {
     rte_atomic32_t flags;                 // Flags for internal use
     uint32_t reserved;                    // reserved for future use
     lcore_t lcores[RTE_MAX_LCORE];        // Array of lcore structures
-    uint64_t cycle_time_ns;               // Cycle time in nanoseconds
+    uint64_t launch_interval_ns;          // Launch interval in nanoseconds
     uint16_t mqtt_lcore_id;               // MQTT lcore ID
     uint16_t worker_lcore_id;             // Worker lcore IDF
     uint16_t delay_sec;                   // Start delay in seconds
@@ -69,6 +69,7 @@ typedef struct {
     uint16_t pad0;                        // Padding for alignment
     uint32_t link_speed;                  // Link speed in Mbps
     uint32_t run_duration_sec;            // Run duration in seconds
+    uint32_t tx_burst_offset_ns;          // TX burst offset in nanoseconds before cycle end
     char *burst_length_str;               // Burst/Length string 'Burst/Length'
     char *run_duration_str;               // Run duration string
     char *dest_mac_str;                   // Destination MAC address in string format

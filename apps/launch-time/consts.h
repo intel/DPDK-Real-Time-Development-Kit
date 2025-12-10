@@ -21,7 +21,7 @@
 
 enum {
     THE_BEEF_TIMESTAMP = 0xbeef,          // Magic value for BEEF timestamp
-    BIG_NUM            = 10000000,        // A big number
+    BIG_NUM            = 60000000,        // A big number
     MAX_BURST_COUNT    = 256,             // Maximum number of packets to send per burst
     DEFAULT_RING_SIZE  = 1024,            // Size of ring for each port
     DEFAULT_MBUF_COUNT = 8192,            // Number of mbufs per port
@@ -32,7 +32,6 @@ enum {
     MAX_PKT_LENGTH     = 1536,            // Maximum packet length
     FCS_SIZE           = 4,               // Size of FCS
     DEFAULT_DELAY_SEC  = 2,               // Default delay in seconds before Tx packets
-    DEFAULT_SKIP_COUNT = 10,              // Number of packets to throw away
     USEC_PER_SEC       = (NSEC_PER_SEC / 1000UL),        // Number of microseconds in a second
 };
 

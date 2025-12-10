@@ -149,7 +149,7 @@ print_stats(void)
     snprintf(time_str, sizeof(time_str), "%03d:%02d:%02d", hours, minutes, remaining_seconds);
 
     printf("%c: %s, Cycles: %'lu ns, ", twirl[toggle++ % 4], "Launch-Time",
-           pinfo->cycle_time_ns);
+           pinfo->launch_interval_ns);
     printf("Burst/Len: %s, Duration:%s, Time:%s\n", pinfo->burst_length_str,
            pinfo->run_duration_str, time_str);
 
