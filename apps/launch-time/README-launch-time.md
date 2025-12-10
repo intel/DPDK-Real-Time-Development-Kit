@@ -59,25 +59,30 @@ Use `--help` to see available options.
 ### Optional Arguments
 
 **Network Configuration:**
+
 - `-d | --dest-mac MAC` - Destination MAC address (default: FF:FF:FF:FF:FF:FF)
 - `-s | --link-speed N` - Desired NIC link speed in Mbps (Default: Auto-negotiation)
 - `-P | --promiscuous` - Enable promiscuous mode (Default: Disabled)
 
 **Timing and Performance:**
+
 - `-L | --launch-time` - Enable launch time support
 - `-H | --hw-timestamp` - Enable hardware timestamping
 - `-D | --delay-time N` - Startup delay in seconds (Default: 0)
 - `-T | --tx-burst-offset N` - TX burst offset in ns before cycle end (Default: auto-calculated as 2% of launch interval, max 60µs)
 
 **Runtime Control:**
+
 - `-R | --run-duration N` - Run duration in format `Hours:Minutes:Seconds` (default: run forever)
 
 **Logging and Telemetry:**
+
 - `-l | --log-file FILE` - Log packet timestamps to FILE
 - `-M | --mqtt` - Enable MQTT logging (Default: Disabled)
 - `-i | --internal-debug` - Display internal debugging statistics
 
 **Help:**
+
 - `-h | --help` - Print help text and exit
 
 ## Usage Examples
@@ -140,7 +145,7 @@ Run for 1 hour with 5 second startup delay:
 
 ### Multiple Packets Per Burst
 
-Send 4 packets of 128 bytes per burst:
+Send 4 packets of 128 bytes per burst (max 256):
 
 ```bash
 ./usertools/run lttt -c 62500 -b 4/128
@@ -150,8 +155,5 @@ Send 4 packets of 128 bytes per burst:
 
 - **Hardware Timestamping**: Uses DPDK's RX timestamp offload for precise packet timing
 - **Launch Time Control**: Uses DPDK's TX send-on-timestamp offload for scheduled transmission
-- **Two Operating Modes**:
-  - **Reference Mode** (default): Generates and transmits packets with precise timing
-  - **Mirror Mode**: Receives and retransmits packets (loopback testing)
 - **MQTT Integration**: Optional telemetry publishing to MQTT broker
 - **Statistics Logging**: Detailed performance metrics collection
