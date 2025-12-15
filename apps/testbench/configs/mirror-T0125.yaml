@@ -10,9 +10,7 @@
 #
 Application:
   ApplicationClockId: CLOCK_TAI
-#  ApplicationBaseCycleTimeNS: 250000
-#  ApplicationTxBaseOffsetNS:  200000
-#  ApplicationRxBaseOffsetNS:  150000
+  # ApplicationBaseStartTimeNS: 0
   ApplicationBaseCycleTimeNS: 125000
   ApplicationTxBaseOffsetNS:  100000
   ApplicationRxBaseOffsetNS:   75000
@@ -78,7 +76,7 @@ RTC:
   RtcThreadCpu: 20
   RtcDestination: 6c:fe:54:a0:84:f0
 RTA:
-  RtaEnabled: false
+  RtaEnabled: true
   RtaVid: 103
   RtaBurstPeriodNS: 200000000
   RtaNumFramesPerCycle: 1
@@ -89,7 +87,7 @@ RTA:
   RtaThreadCpu: 21
   RtaDestination: 6c:fe:54:a0:84:f0
 DCP:
-  DcpEnabled: false
+  DcpEnabled: true
   DcpVid: 104
   DcpBurstPeriodNS: 2000000000
   DcpNumFramesPerCycle: 1
@@ -100,7 +98,7 @@ DCP:
   DcpThreadCpu: 22
   DcpDestination: 6c:fe:54:a0:84:f0
 LLDP:
-  LldpEnabled: false
+  LldpEnabled: true
   LldpBurstPeriodNS: 5000000000
   LldpNumFramesPerCycle: 1
   LldpPayloadPattern: |
@@ -124,7 +122,7 @@ UDPHigh:
   UdpHighSource: 10.10.1.2
   UdpHighMacDestination: 6c:fe:54:a0:84:f0
 UDPLow:
-  UdpLowEnabled: false
+  UdpLowEnabled: true
   UdpLowBurstPeriodNS: 1000000000
   UdpLowNumFramesPerCycle: 1
   UdpLowPayloadPattern: |
