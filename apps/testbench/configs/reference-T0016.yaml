@@ -16,7 +16,6 @@ Application:
   ApplicationRxBaseOffsetNS: 9375
   ApplicationNumMbufs: 1024
   ApplicationMbufSize: 0
-  ApplicationMbufSizeFoobar: 0
   ApplicationCacheSize: 64
   ApplicationNumRxDescriptors: 0
   ApplicationNumTxDescriptors: 0
