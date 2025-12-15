@@ -136,8 +136,6 @@ config_read_from_file(const char *config_file)
                                     application_wait_time_before_start);
 
             CONFIG_STORE_BOOL_PARAM(PktHandlerEnabled, pkt_handler_enabled);
-            CONFIG_STORE_LPORT_PARAM(PktHandlerPhysicalLPortID, pkt_handler_physical_lport_id);
-            CONFIG_STORE_LPORT_PARAM(PktHandlerLPortID, pkt_handler_lport_id);
             CONFIG_STORE_INT_PARAM(PktHandlerThreadCpu, pkt_handler_thread_cpu);
 
             CONFIG_STORE_BOOL_PARAM(TsnHighEnabled, tsn_high_enabled);
@@ -396,7 +394,6 @@ pkt_handler_config(void)
     if (app_config.pkt_handler_enabled) {
         printf("   Enabled=%s\n", app_config.pkt_handler_enabled ? "True" : "False");
         printf("   LPortID=%s\n", lport_format(app_config.pkt_handler_lport_id));
-        printf("   PhysicalLPortID=%s\n", lport_format(app_config.pkt_handler_physical_lport_id));
         printf("   ThreadCpu=%d\n", app_config.pkt_handler_thread_cpu);
     } else
         printf("   ** Disabled **\n");

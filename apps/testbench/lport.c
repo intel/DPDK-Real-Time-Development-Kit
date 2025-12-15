@@ -212,15 +212,10 @@ lport_pktmbuf_pool(const char *name, lport_id_t id, uint32_t num_mbufs, uint32_t
 {
     struct rte_mempool *mp;
 
-    fprintf(stderr, "%s: lport %s: Entry\n", __func__, lport_format(id));
-
-    fprintf(stderr, "%s: lport %s: Here 0 %s, num_mbufs %'u\n", __func__, lport_format(id), name,
-            num_mbufs);
     mp = rte_pktmbuf_pool_create(name, num_mbufs, cache_size, DEFAULT_PRIV_SIZE, mbuf_size,
                                  rte_eth_dev_socket_id(lport2pid(id)));
     if (!mp)
         LP_LOG(ERR, "Failed to allocate mbuf pool %s: %s", name, rte_strerror(rte_errno));
-    fprintf(stderr, "%s: lport %s: Exit\n", __func__, lport_format(id));
 
     return mp;
 }
@@ -386,22 +381,19 @@ lqueue_setup(lport_t *lport, lport_id_t id, const char *name)
            lpc->cache_sz);
 
     snprintf(buff, sizeof(buff) - 1, "%s-rx-%s", name, lport_format(id));
-    fprintf(stderr, "%s: lport %s: Here 0 lqueue %p\n", __func__, lport_format(id), lqueue);
     lqueue->rx_mp = lport_pktmbuf_pool(buff, id, num_mbufs, lpc->mbuf_size, lpc->cache_sz);
     if (lqueue->rx_mp == NULL) {
         LP_LOG(ERR, "%s: lport_pktmbuf_pool(%s) failed", __func__, buff);
         goto err_exit;
     }
 
-    fprintf(stderr, "%s: lport %s: Here 1\n", __func__, lport_format(id));
     if (lpc->nb_tx_mbufs) {
         num_mbufs = rte_align32pow2(lpc->nb_tx_mbufs);
 
         LP_LOG(INFO, "Setup lport %s with %'8d Tx mbufs, cache_size %'d", lport_format(id),
                num_mbufs, lpc->cache_sz);
-        snprintf(buff, sizeof(buff) - 1, "%s-tx-%s", name, lport_format(id));
-        fprintf(stderr, "%s: lport %s: Here 2 lqueue %p\n", __func__, lport_format(id), lqueue);
 
+        snprintf(buff, sizeof(buff) - 1, "%s-tx-%s", name, lport_format(id));
         lqueue->tx_mp = lport_pktmbuf_pool(buff, id, num_mbufs, lpc->mbuf_size, lpc->cache_sz);
         if (lqueue->tx_mp == NULL) {
             LP_LOG(ERR, "%s: lport_pktmbuf_pool_create(%s) failed", __func__, buff);
@@ -409,14 +401,12 @@ lqueue_setup(lport_t *lport, lport_id_t id, const char *name)
         }
     }
 
-    fprintf(stderr, "%s: lport %s: Here 2\n", __func__, lport_format(id));
     lqueue->tx_buffer = lport_tx_buffer_alloc(id);
     if (!lqueue->tx_buffer) {
         LP_LOG(ERR, "%s: Failed to allocate %s tx buffer!", __func__, name);
         goto err_exit;
     }
 
-    fprintf(stderr, "%s: lport %s: setup done\n", __func__, lport_format(id));
     return 0;
 
 err_exit:

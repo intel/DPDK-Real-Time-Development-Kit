@@ -164,6 +164,15 @@ rx_vlan_callback(uint16_t pid __rte_unused, uint16_t qid __rte_unused, struct rt
 static void
 tsn_configure_lports(void)
 {
+	uint16_t phy_port_id = 0, port_id = -1;
+
+	app_config.pkt_handler_physical_lport_id = lport_make(phy_port_id, 0);
+	fprintf(stderr, "Physical LPortID for PktHandler: %s\n", lport_format(app_config.pkt_handler_physical_lport_id));
+
+	rte_eth_dev_get_port_by_name("net_pflow", &port_id);
+	app_config.pkt_handler_lport_id = lport_make(port_id, 0);
+	fprintf(stderr, "LPortID for PktHandler: %s\n", lport_format(app_config.pkt_handler_lport_id));
+
     _(pkt_handler, PktHdlrPhy, app_config.pkt_handler_physical_lport_id, 0, (128 * 1024), 0);
     _(pkt_handler, PktHdlr, app_config.pkt_handler_lport_id, 0, 2048, 16384);
     _(tsn_high, tsnHigh, app_config.tsn_high_lport_id, 0, 2048, 8192);

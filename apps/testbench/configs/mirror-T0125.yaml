@@ -38,8 +38,6 @@ LogViaMQTT:
    LogViaMQTTMeasurementName: reference
 PKTHandler:
   PktHandlerEnabled: true
-  PktHandlerPhysicalLPortID: 0:0
-  PktHandlerLPortID: 1:0
   PktHandlerThreadCpu: 17
 TSNHigh:
   TsnHighEnabled: true
