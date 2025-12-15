@@ -56,3 +56,4 @@ build-*
 *-clang*
 external/*
 !external/.gitkeep
+research/*
