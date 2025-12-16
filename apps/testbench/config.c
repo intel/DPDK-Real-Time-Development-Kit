@@ -46,14 +46,14 @@ config_set_file(const char *config_file)
     config_file_path = config_file;
 }
 
-#define max_queue(enabled, id)                                                \
-    fprintf(stderr, "max_queue called for " #id "\n");                        \
-    if (app_config.enabled) {                                                 \
-        qid_t *q      = &app_config.qinfo[0];                                 \
-        app_config.id = lport_make(1, qid);                                   \
-        fprintf(stderr, "Adding queue id %d for port id %d for %s\n", qid, 1, \
-                lport_format(app_config.id));                                 \
-        q->qids[q->cnt++] = qid++;                                            \
+#define max_queue(enabled, id)                                                  \
+    if (app_config.enabled) {                                                   \
+        uint16_t pid  = 1;                                                      \
+        qid_t *q      = &app_config.qinfo[pid];                                 \
+        app_config.id = lport_make(pid, qid);                                   \
+        fprintf(stderr, "Adding queue id %d for port id %d for %s\n", qid, pid, \
+                lport_format(app_config.id));                                   \
+        q->qids[q->cnt++] = qid++;                                              \
     }
 
 /* The configuration file is YAML based. Use libyaml to parse it. */
