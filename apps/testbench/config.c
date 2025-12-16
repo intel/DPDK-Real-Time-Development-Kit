@@ -68,7 +68,6 @@ config_read_from_file(const char *config_file)
     char *key = NULL;
     FILE *f;
 
-	fprintf(stderr, "Reading configuration from file: %s\n", config_file);
     if (!config_file)
         return -EINVAL;
 
@@ -78,7 +77,6 @@ config_read_from_file(const char *config_file)
         return -EIO;
     }
 
-	fprintf(stderr, "Parsing configuration file...\n");
     ret = yaml_parser_initialize(&parser);
     if (!ret) {
         ret = -EINVAL;
@@ -86,7 +84,6 @@ config_read_from_file(const char *config_file)
         goto err_yaml;
     }
 
-	fprintf(stderr, "YAML parser initialized\n");
     yaml_parser_set_input_file(&parser, f);
 
     do {
@@ -315,10 +312,8 @@ config_read_from_file(const char *config_file)
 
     } while (token.type != YAML_STREAM_END_TOKEN);
 
-	fprintf(stderr, "YAML parsing completed\n");
-
-	app_config.qinfo[0].cnt = 1; // Reserve qinfo[0] for special purposes
-	app_config.qinfo[1].cnt = 1; // Reserve qinfo[0] for special purposes
+	app_config.qinfo[0].cnt = 1; // Reserve queue 0 for physical port
+	app_config.qinfo[1].cnt = 1; // Reserve queue 0 for pflow
     max_queue(tsn_high_enabled, tsn_high_lport_id);
     max_queue(tsn_low_enabled, tsn_low_lport_id);
     max_queue(rtc_enabled, rtc_lport_id);
@@ -329,7 +324,6 @@ config_read_from_file(const char *config_file)
     max_queue(udp_low_enabled, udp_low_lport_id);
     max_queue(l2_enabled, l2_lport_id);
 
-	fprintf(stderr, "Applying default values for missing configuration parameters...\n");
     if (app_config.application_num_mbufs == 0)
         app_config.application_num_mbufs = DEFAULT_MBUF_COUNT;
     if (app_config.application_cache_size == 0)
@@ -365,7 +359,6 @@ config_read_from_file(const char *config_file)
     }
 
     ret = 0;
-	fprintf(stderr, "Configuration file parsed successfully\n");
 
 err_parse:
     yaml_token_delete(&token);
@@ -374,7 +367,6 @@ err_parse:
 err_yaml:
     fclose(f);
 
-	fprintf(stderr, "Configuration read_from_file() exiting with code %d\n", ret);
     return ret;
 }
 

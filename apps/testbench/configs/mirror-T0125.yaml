@@ -64,7 +64,7 @@ TSNLow:
   TsnLowThreadCpu: 19
   TsnLowDestination: 6c:fe:54:a0:84:f0
 RTC:
-  RtcEnabled: true
+  RtcEnabled: false
   RtcVid: 102
   RtcNumFramesPerCycle: 1
   RtcPayloadPattern: |
@@ -74,7 +74,7 @@ RTC:
   RtcThreadCpu: 20
   RtcDestination: 6c:fe:54:a0:84:f0
 RTA:
-  RtaEnabled: true
+  RtaEnabled: false
   RtaVid: 103
   RtaBurstPeriodNS: 200000000
   RtaNumFramesPerCycle: 1
@@ -85,7 +85,7 @@ RTA:
   RtaThreadCpu: 21
   RtaDestination: 6c:fe:54:a0:84:f0
 DCP:
-  DcpEnabled: true
+  DcpEnabled: false
   DcpVid: 104
   DcpBurstPeriodNS: 2000000000
   DcpNumFramesPerCycle: 1
@@ -96,7 +96,7 @@ DCP:
   DcpThreadCpu: 22
   DcpDestination: 6c:fe:54:a0:84:f0
 LLDP:
-  LldpEnabled: true
+  LldpEnabled: false
   LldpBurstPeriodNS: 5000000000
   LldpNumFramesPerCycle: 1
   LldpPayloadPattern: |
@@ -120,7 +120,7 @@ UDPHigh:
   UdpHighSource: 10.10.1.2
   UdpHighMacDestination: 6c:fe:54:a0:84:f0
 UDPLow:
-  UdpLowEnabled: true
+  UdpLowEnabled: false
   UdpLowBurstPeriodNS: 1000000000
   UdpLowNumFramesPerCycle: 1
   UdpLowPayloadPattern: |

@@ -299,6 +299,7 @@ l2_threads_routine(void *data)
 {
     struct thread_context *thread_context = data;
 
+	fprintf(stderr, "L2 thread running on lcore %u\n", rte_lcore_id());
     l2_thread_setup(data);
 
     if (thread_timer_alloc(thread_context, "L2", MAX_TIMERS) < 0)
@@ -364,15 +365,22 @@ l2_launch(void *arg)
 {
     struct thread_context *thread_context = (struct thread_context *)arg;
 
-    if (!app_config.l2_enabled)
+	fprintf(stderr, "Launching L2 thread on lcore %u\n", thread_context->lcore_id);
+    if (!app_config.l2_enabled) {
+		fprintf(stderr, "L2 traffic class is disabled, not launching L2 thread\n");
         return 0;
+	}
 
-    if (l2_threads_create(thread_context))
+    if (l2_threads_create(thread_context)) {
+		fprintf(stderr, "Failed to create L2 threads\n");
         return -1;
+	}
 
-    if (rte_eal_get_lcore_state(thread_context->lcore_id) == RUNNING)
+    if (rte_eal_get_lcore_state(thread_context->lcore_id) == RUNNING) {
         rte_exit(EXIT_FAILURE, "L2 Lcore %u is already running\n", thread_context->lcore_id);
+	}
 
+	fprintf(stderr, "Starting L2 thread on lcore %u\n", thread_context->lcore_id);
     return rte_eal_remote_launch(l2_threads_routine, thread_context, thread_context->lcore_id);
 }
 
