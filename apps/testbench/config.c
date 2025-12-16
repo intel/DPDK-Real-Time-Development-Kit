@@ -47,10 +47,12 @@ config_set_file(const char *config_file)
 }
 
 #define max_queue(enabled, id)                        \
+	fprintf(stderr, "max_queue called for " #id "\n"); \
     if (app_config.enabled) {                         \
         int pid           = lport2pid(app_config.id); \
         int qid           = lport2qid(app_config.id); \
         qid_t *q          = &app_config.qinfo[pid];   \
+		fprintf(stderr, "Adding queue id %d for port id %d for %s\n", qid, pid, lport_format(app_config.id)); \
         q->qids[q->cnt++] = qid;                      \
     }
 
@@ -66,6 +68,7 @@ config_read_from_file(const char *config_file)
     char *key = NULL;
     FILE *f;
 
+	fprintf(stderr, "Reading configuration from file: %s\n", config_file);
     if (!config_file)
         return -EINVAL;
 
@@ -75,6 +78,7 @@ config_read_from_file(const char *config_file)
         return -EIO;
     }
 
+	fprintf(stderr, "Parsing configuration file...\n");
     ret = yaml_parser_initialize(&parser);
     if (!ret) {
         ret = -EINVAL;
@@ -82,6 +86,7 @@ config_read_from_file(const char *config_file)
         goto err_yaml;
     }
 
+	fprintf(stderr, "YAML parser initialized\n");
     yaml_parser_set_input_file(&parser, f);
 
     do {
@@ -310,7 +315,10 @@ config_read_from_file(const char *config_file)
 
     } while (token.type != YAML_STREAM_END_TOKEN);
 
-    max_queue(pkt_handler_enabled, pkt_handler_lport_id);
+	fprintf(stderr, "YAML parsing completed\n");
+
+	app_config.qinfo[0].cnt = 1; // Reserve qinfo[0] for special purposes
+	app_config.qinfo[1].cnt = 1; // Reserve qinfo[0] for special purposes
     max_queue(tsn_high_enabled, tsn_high_lport_id);
     max_queue(tsn_low_enabled, tsn_low_lport_id);
     max_queue(rtc_enabled, rtc_lport_id);
@@ -321,6 +329,7 @@ config_read_from_file(const char *config_file)
     max_queue(udp_low_enabled, udp_low_lport_id);
     max_queue(l2_enabled, l2_lport_id);
 
+	fprintf(stderr, "Applying default values for missing configuration parameters...\n");
     if (app_config.application_num_mbufs == 0)
         app_config.application_num_mbufs = DEFAULT_MBUF_COUNT;
     if (app_config.application_cache_size == 0)
@@ -356,6 +365,7 @@ config_read_from_file(const char *config_file)
     }
 
     ret = 0;
+	fprintf(stderr, "Configuration file parsed successfully\n");
 
 err_parse:
     yaml_token_delete(&token);
@@ -364,6 +374,7 @@ err_parse:
 err_yaml:
     fclose(f);
 
+	fprintf(stderr, "Configuration read_from_file() exiting with code %d\n", ret);
     return ret;
 }
 
@@ -1210,6 +1221,7 @@ config_init(void *arg __rte_unused)
 
     memset(app_config.qinfo, 0, sizeof(app_config.qinfo));
 
+	fprintf(stderr, "Setting default configuration values...\n");
     /*
      * The "mirror" application only mirrors traffic and never generate frames itself. Make
      * sure, the corresponding options are set.
@@ -1228,12 +1240,16 @@ config_init(void *arg __rte_unused)
         return -1;
     }
 
+	fprintf(stderr, "Reading configuration file...\n");
     ret = config_read_from_file(config_file_path);
     if (ret) {
         fprintf(stderr, "Failed to parse configuration file!\n");
         return ret;
     }
+	fprintf(stderr, "Printing configuration values...\n");
     config_print_values();
+
+	fprintf(stderr, "Done loading configuration\n");
 
     return ret;
 }
