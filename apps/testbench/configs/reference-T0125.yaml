@@ -112,7 +112,7 @@ UDPHigh:
   UdpHighSource: 192.168.176.109
   UdpHighMacDestination: 6c:fe:54:a0:86:80
 UDPLow:
-  UdpLowEnabled: true
+  UdpLowEnabled: false
   UdpLowBurstPeriodNS: 1000000000
   UdpLowNumFramesPerCycle: 1
   UdpLowPayloadPattern: |

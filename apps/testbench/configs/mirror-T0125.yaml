@@ -100,7 +100,7 @@ LLDP:
   LldpThreadCpu: 23
   LldpDestination: 01:80:c2:00:00:0e
 UDPHigh:
-  UdpHighEnabled: true
+  UdpHighEnabled: false
   UdpHighBurstPeriodNS: 1000000000
   UdpHighNumFramesPerCycle: 1
   UdpHighPayloadPattern: |
