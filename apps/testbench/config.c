@@ -50,8 +50,8 @@ config_set_file(const char *config_file)
     fprintf(stderr, "max_queue called for " #id "\n");                        \
     if (app_config.enabled) {                                                 \
         qid_t *q      = &app_config.qinfo[0];                                 \
-        app_config.id = lport_make(0, qid);                                   \
-        fprintf(stderr, "Adding queue id %d for port id %d for %s\n", qid, 0, \
+        app_config.id = lport_make(1, qid);                                   \
+        fprintf(stderr, "Adding queue id %d for port id %d for %s\n", qid, 1, \
                 lport_format(app_config.id));                                 \
         q->qids[q->cnt++] = qid++;                                            \
     }
