@@ -61,7 +61,7 @@ TSNLow:
   TsnLowThreadCpu: 19
   TsnLowDestination: 6c:fe:54:a0:86:80
 RTC:
-  RtcEnabled: true
+  RtcEnabled: false
   RtcVid: 102
   RtcNumFramesPerCycle: 1
   RtcPayloadPattern: |
@@ -99,7 +99,7 @@ LLDP:
   LldpThreadCpu: 23
   LldpDestination: 01:80:c2:00:00:0e
 UDPHigh:
-  UdpHighEnabled: false
+  UdpHighEnabled: true
   UdpHighBurstPeriodNS: 1000000000
   UdpHighNumFramesPerCycle: 1
   UdpHighPayloadPattern: |
