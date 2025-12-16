@@ -46,14 +46,14 @@ config_set_file(const char *config_file)
     config_file_path = config_file;
 }
 
-#define max_queue(enabled, id)                        \
-	fprintf(stderr, "max_queue called for " #id "\n"); \
-    if (app_config.enabled) {                         \
-        int pid           = lport2pid(app_config.id); \
-        int qid           = lport2qid(app_config.id); \
-        qid_t *q          = &app_config.qinfo[pid];   \
-		fprintf(stderr, "Adding queue id %d for port id %d for %s\n", qid, pid, lport_format(app_config.id)); \
-        q->qids[q->cnt++] = qid;                      \
+#define max_queue(enabled, id)                                                \
+    fprintf(stderr, "max_queue called for " #id "\n");                        \
+    if (app_config.enabled) {                                                 \
+        qid_t *q      = &app_config.qinfo[0];                                 \
+        app_config.id = lport_make(0, qid);                                   \
+        fprintf(stderr, "Adding queue id %d for port id %d for %s\n", qid, 0, \
+                lport_format(app_config.id));                                 \
+        q->qids[q->cnt++] = qid++;                                            \
     }
 
 /* The configuration file is YAML based. Use libyaml to parse it. */
@@ -65,7 +65,8 @@ config_read_from_file(const char *config_file)
     yaml_parser_t parser;
     yaml_token_t token;
     const char *value;
-    char *key = NULL;
+    char *key    = NULL;
+    uint16_t qid = 1;
     FILE *f;
 
     if (!config_file)
@@ -141,7 +142,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_INT_PARAM(PktHandlerThreadCpu, pkt_handler_thread_cpu);
 
             CONFIG_STORE_BOOL_PARAM(TsnHighEnabled, tsn_high_enabled);
-            CONFIG_STORE_LPORT_PARAM(TsnHighLPortID, tsn_high_lport_id);
             CONFIG_STORE_BOOL_PARAM(TsnHighTxTimeEnabled, tsn_high_tx_time_enabled);
             CONFIG_STORE_BOOL_PARAM(TsnHighIgnoreRxErrors, tsn_high_ignore_rx_errors);
             CONFIG_STORE_ULONG_PARAM(TsnHighTxTimeOffsetNS, tsn_high_tx_time_offset_ns);
@@ -172,7 +172,6 @@ config_read_from_file(const char *config_file)
                                                   tsn_low_security_algorithm);
             CONFIG_STORE_STRING_PARAM(TsnLowSecurityKey, tsn_low_security_key);
             CONFIG_STORE_STRING_PARAM(TsnLowSecurityIvPrefix, tsn_low_security_iv_prefix);
-            CONFIG_STORE_LPORT_PARAM(TsnLowLPortID, tsn_low_lport_id);
             CONFIG_STORE_INT_PARAM(TsnLowThreadCpu, tsn_low_thread_cpu);
             CONFIG_STORE_MAC_PARAM(TsnLowDestination, tsn_low_destination);
 
@@ -187,7 +186,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_SECURITY_ALGORITHM_PARAM(RtcSecurityAlgorithm, rtc_security_algorithm);
             CONFIG_STORE_STRING_PARAM(RtcSecurityKey, rtc_security_key);
             CONFIG_STORE_STRING_PARAM(RtcSecurityIvPrefix, rtc_security_iv_prefix);
-            CONFIG_STORE_LPORT_PARAM(RtcLPortID, rtc_lport_id);
             CONFIG_STORE_INT_PARAM(RtcThreadCpu, rtc_thread_cpu);
             CONFIG_STORE_MAC_PARAM(RtcDestination, rtc_destination);
 
@@ -203,7 +201,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_SECURITY_ALGORITHM_PARAM(RtaSecurityAlgorithm, rta_security_algorithm);
             CONFIG_STORE_STRING_PARAM(RtaSecurityKey, rta_security_key);
             CONFIG_STORE_STRING_PARAM(RtaSecurityIvPrefix, rta_security_iv_prefix);
-            CONFIG_STORE_LPORT_PARAM(RtaLPortID, rta_lport_id);
             CONFIG_STORE_INT_PARAM(RtaThreadCpu, rta_thread_cpu);
             CONFIG_STORE_MAC_PARAM(RtaDestination, rta_destination);
 
@@ -215,7 +212,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_ULONG_PARAM(DcpNumFramesPerCycle, dcp_num_frames_per_cycle);
             CONFIG_STORE_STRING_PARAM(DcpPayloadPattern, dcp_payload_pattern);
             CONFIG_STORE_ULONG_PARAM(DcpFrameLength, dcp_frame_length);
-            CONFIG_STORE_LPORT_PARAM(DcpLPortID, dcp_lport_id);
             CONFIG_STORE_INT_PARAM(DcpThreadCpu, dcp_thread_cpu);
             CONFIG_STORE_MAC_PARAM(DcpDestination, dcp_destination);
 
@@ -225,7 +221,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_ULONG_PARAM(LldpNumFramesPerCycle, lldp_num_frames_per_cycle);
             CONFIG_STORE_STRING_PARAM(LldpPayloadPattern, lldp_payload_pattern);
             CONFIG_STORE_ULONG_PARAM(LldpFrameLength, lldp_frame_length);
-            CONFIG_STORE_LPORT_PARAM(LldpLPortID, lldp_lport_id);
             CONFIG_STORE_INT_PARAM(LldpThreadCpu, lldp_thread_cpu);
             CONFIG_STORE_MAC_PARAM(LldpDestination, lldp_destination);
 
@@ -235,7 +230,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_ULONG_PARAM(UdpHighNumFramesPerCycle, udp_high_num_frames_per_cycle);
             CONFIG_STORE_STRING_PARAM(UdpHighPayloadPattern, udp_high_payload_pattern);
             CONFIG_STORE_ULONG_PARAM(UdpHighFrameLength, udp_high_frame_length);
-            CONFIG_STORE_LPORT_PARAM(UdpHighLPortID, udp_high_lport_id);
             CONFIG_STORE_INT_PARAM(UdpHighThreadCpu, udp_high_thread_cpu);
             CONFIG_STORE_INT_PARAM(UdpHighPort, udp_high_port);
             CONFIG_STORE_INT_PARAM(UdpHighSrcPort, udp_high_src_port);
@@ -249,7 +243,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_ULONG_PARAM(UdpLowNumFramesPerCycle, udp_low_num_frames_per_cycle);
             CONFIG_STORE_STRING_PARAM(UdpLowPayloadPattern, udp_low_payload_pattern);
             CONFIG_STORE_ULONG_PARAM(UdpLowFrameLength, udp_low_frame_length);
-            CONFIG_STORE_LPORT_PARAM(UdpLowLPortID, udp_low_lport_id);
             CONFIG_STORE_INT_PARAM(UdpLowThreadCpu, udp_low_thread_cpu);
             CONFIG_STORE_INT_PARAM(UdpLowPort, udp_low_port);
             CONFIG_STORE_INT_PARAM(UdpLowSrcPort, udp_low_src_port);
@@ -267,7 +260,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_ULONG_PARAM(L2NumFramesPerCycle, l2_num_frames_per_cycle);
             CONFIG_STORE_STRING_PARAM(L2PayloadPattern, l2_payload_pattern);
             CONFIG_STORE_ULONG_PARAM(L2FrameLength, l2_frame_length);
-            CONFIG_STORE_LPORT_PARAM(L2LPortID, l2_lport_id);
             CONFIG_STORE_INT_PARAM(L2ThreadCpu, l2_thread_cpu);
             CONFIG_STORE_MAC_PARAM(L2Destination, l2_destination);
 
@@ -312,8 +304,8 @@ config_read_from_file(const char *config_file)
 
     } while (token.type != YAML_STREAM_END_TOKEN);
 
-	app_config.qinfo[0].cnt = 1; // Reserve queue 0 for physical port
-	app_config.qinfo[1].cnt = 1; // Reserve queue 0 for pflow
+    app_config.qinfo[0].cnt = 1;        // Reserve queue 0 for physical port
+    app_config.qinfo[1].cnt = 1;        // Reserve queue 0 for pflow
     max_queue(tsn_high_enabled, tsn_high_lport_id);
     max_queue(tsn_low_enabled, tsn_low_lport_id);
     max_queue(rtc_enabled, rtc_lport_id);
@@ -1213,7 +1205,7 @@ config_init(void *arg __rte_unused)
 
     memset(app_config.qinfo, 0, sizeof(app_config.qinfo));
 
-	fprintf(stderr, "Setting default configuration values...\n");
+    fprintf(stderr, "Setting default configuration values...\n");
     /*
      * The "mirror" application only mirrors traffic and never generate frames itself. Make
      * sure, the corresponding options are set.
@@ -1232,16 +1224,16 @@ config_init(void *arg __rte_unused)
         return -1;
     }
 
-	fprintf(stderr, "Reading configuration file...\n");
+    fprintf(stderr, "Reading configuration file...\n");
     ret = config_read_from_file(config_file_path);
     if (ret) {
         fprintf(stderr, "Failed to parse configuration file!\n");
         return ret;
     }
-	fprintf(stderr, "Printing configuration values...\n");
+    fprintf(stderr, "Printing configuration values...\n");
     config_print_values();
 
-	fprintf(stderr, "Done loading configuration\n");
+    fprintf(stderr, "Done loading configuration\n");
 
     return ret;
 }
