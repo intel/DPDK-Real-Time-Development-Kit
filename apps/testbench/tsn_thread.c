@@ -652,7 +652,6 @@ tsn_high_launch(void *arg)
 
     if (!app_config.tsn_high_enabled)
         return 0;
-
     if (tsn_high_threads_init(thread_context))
         return -1;
 

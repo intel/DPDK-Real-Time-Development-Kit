@@ -64,7 +64,7 @@ TSNLow:
   TsnLowThreadCpu: 19
   TsnLowDestination: 6c:fe:54:a0:84:f0
 RTC:
-  RtcEnabled: false
+  RtcEnabled: true
   RtcVid: 102
   RtcNumFramesPerCycle: 1
   RtcPayloadPattern: |

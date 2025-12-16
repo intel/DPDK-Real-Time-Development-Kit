@@ -531,7 +531,6 @@ rtc_launch(void *arg)
 
     if (!app_config.rtc_enabled)
         return 0;
-
     if (rtc_threads_create(thread_context))
         return -1;
 
