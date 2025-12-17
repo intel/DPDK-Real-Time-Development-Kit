@@ -23,7 +23,7 @@ TSNHigh:
   TsnHighTxTimeEnabled: false
   TsnHighTxTimeOffsetNS: 0
   TsnHighVid: 100
-  TsnHighNumFramesPerCycle: 1
+  TsnHighNumFramesPerCycle: 8
   TsnHighPayloadPattern: |
     TsnHighPayloadPattern
   TsnHighFrameLength: 128

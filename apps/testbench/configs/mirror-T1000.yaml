@@ -22,30 +22,31 @@ Log:
   LogThreadPriority: 1
   LogThreadCpu: 15
   LogFile: /var/log/mirror-T1000.log
-  LogLevel: Debug
+  LogLevel: Info
 LogViaMQTT:
-   LogViaMQTT: True
+   LogViaMQTT: true
    LogViaMQTTThreadCpu: 16
    LogViaMQTTThreadPriority: 1
    LogViaMQTTThreadPeriodNS: 1000000
    LogViaMQTTBrokerIP: 127.0.0.1
    LogViaMQTTBrokerPort: 1883
    LogViaMQTTMeasurementName: reference
+PKTHandler:
+  PktHandlerEnabled: true
+  PktHandlerThreadCpu: 17
 TSNHigh:
   TsnHighEnabled: true
   TsnHighTxTimeEnabled: false
   TsnHighTxTimeOffsetNS: 0
   TsnHighVid: 100
-  TsnHighNumFramesPerCycle: 128
+  TsnHighNumFramesPerCycle: 8
   TsnHighPayloadPattern: |
     TsnHighPayloadPattern
   TsnHighFrameLength: 128
-  TsnHighLPortID: 0:0
-  TsnHighThreadCpu: 17
-  TsnHighDestination: 68:05:ca:ab:08:6c
-  TsnHighIgnoreRxErrors: true
+  TsnHighThreadCpu: 18
+  TsnHighDestination: 6c:fe:54:a0:84:f0
 TSNLow:
-  TsnLowEnabled: false
+  TsnLowEnabled: true
   TsnLowTxTimeEnabled: false
   TsnLowTxTimeOffsetNS: 0
   TsnLowVid: 101
@@ -53,9 +54,8 @@ TSNLow:
   TsnLowPayloadPattern: |
     TsnLowPayloadPattern
   TsnLowFrameLength: 128
-  TsnLowLPortID: 0:1
-  TsnLowThreadCpu: 18
-  TsnLowDestination: 68:05:ca:ab:08:6c
+  TsnLowThreadCpu: 19
+  TsnLowDestination: 6c:fe:54:a0:84:f0
 RTC:
   RtcEnabled: false
   RtcVid: 102

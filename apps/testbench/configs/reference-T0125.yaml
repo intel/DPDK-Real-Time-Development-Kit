@@ -39,7 +39,7 @@ TSNHigh:
   TsnHighTxTimeEnabled: false
   TsnHighTxTimeOffsetNS: 0
   TsnHighVid: 100
-  TsnHighNumFramesPerCycle: 1
+  TsnHighNumFramesPerCycle: 8
   TsnHighPayloadPattern: |
     TsnHighPayloadPattern
   TsnHighFrameLength: 128
@@ -50,7 +50,7 @@ TSNLow:
   TsnLowTxTimeEnabled: false
   TsnLowTxTimeOffsetNS: 0
   TsnLowVid: 101
-  TsnLowNumFramesPerCycle: 1
+  TsnLowNumFramesPerCycle: 8
   TsnLowPayloadPattern: |
     TsnLowPayloadPattern
   TsnLowFrameLength: 128
@@ -59,7 +59,7 @@ TSNLow:
 RTC:
   RtcEnabled: false
   RtcVid: 102
-  RtcNumFramesPerCycle: 1
+  RtcNumFramesPerCycle: 8
   RtcPayloadPattern: |
     RtcPayloadPattern
   RtcFrameLength: 128
@@ -69,7 +69,7 @@ RTA:
   RtaEnabled: false
   RtaVid: 103
   RtaBurstPeriodNS: 200000000
-  RtaNumFramesPerCycle: 1
+  RtaNumFramesPerCycle: 8
   RtaPayloadPattern: |
     RtaPayloadPattern
   RtaFrameLength: 200
@@ -79,7 +79,7 @@ DCP:
   DcpEnabled: false
   DcpVid: 104
   DcpBurstPeriodNS: 2000000000
-  DcpNumFramesPerCycle: 1
+  DcpNumFramesPerCycle: 8
   DcpPayloadPattern: |
     DcpPayloadPattern
   DcpFrameLength: 200
@@ -88,7 +88,7 @@ DCP:
 LLDP:
   LldpEnabled: false
   LldpBurstPeriodNS: 5000000000
-  LldpNumFramesPerCycle: 1
+  LldpNumFramesPerCycle: 8
   LldpPayloadPattern: |
     LldpPayloadPattern
   LldpFrameLength: 200
@@ -97,7 +97,7 @@ LLDP:
 UDPHigh:
   UdpHighEnabled: true
   UdpHighBurstPeriodNS: 1000000000
-  UdpHighNumFramesPerCycle: 1
+  UdpHighNumFramesPerCycle: 8
   UdpHighPayloadPattern: |
     UdpHighPayloadPattern
   UdpHighFrameLength: 1400
@@ -110,7 +110,7 @@ UDPHigh:
 UDPLow:
   UdpLowEnabled: false
   UdpLowBurstPeriodNS: 1000000000
-  UdpLowNumFramesPerCycle: 1
+  UdpLowNumFramesPerCycle: 8
   UdpLowPayloadPattern: |
     UdpLowPayloadPattern
   UdpLowFrameLength: 1400
@@ -127,7 +127,7 @@ L2:
   L2Vid: 400
   L2Pcp: 6
   L2EtherType: 0x22f1
-  L2NumFramesPerCycle: 1
+  L2NumFramesPerCycle: 8
   L2PayloadPattern: |
     L2PayloadPattern
   L2FrameLength: 128

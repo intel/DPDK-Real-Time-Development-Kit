@@ -87,7 +87,7 @@ RTA:
   RtaXdpWakeupMode: true
   RtaVid: 100
   RtaBurstPeriodNS: 200000000
-  RtaNumFramesPerCycle: 1
+  RtaNumFramesPerCycle: 8
   RtaPayloadPattern: |
     RtaPayloadPattern
   RtaFrameLength: 200
@@ -104,7 +104,7 @@ DCP:
   DcpEnabled: true
   DcpVid: 100
   DcpBurstPeriodNS: 2000000000
-  DcpNumFramesPerCycle: 1
+  DcpNumFramesPerCycle: 8
   DcpPayloadPattern: |
     DcpPayloadPattern
   DcpFrameLength: 200
@@ -120,7 +120,7 @@ DCP:
 LLDP:
   LldpEnabled: true
   LldpBurstPeriodNS: 5000000000
-  LldpNumFramesPerCycle: 1
+  LldpNumFramesPerCycle: 8
   LldpPayloadPattern: |
     LldpPayloadPattern
   LldpFrameLength: 200
@@ -136,7 +136,7 @@ LLDP:
 UDPHigh:
   UdpHighEnabled: true
   UdpHighBurstPeriodNS: 1000000000
-  UdpHighNumFramesPerCycle: 1
+  UdpHighNumFramesPerCycle: 8
   UdpHighPayloadPattern: |
     UdpHighPayloadPattern
   UdpHighFrameLength: 1400
@@ -154,7 +154,7 @@ UDPHigh:
 UDPLow:
   UdpLowEnabled: true
   UdpLowBurstPeriodNS: 1000000000
-  UdpLowNumFramesPerCycle: 1
+  UdpLowNumFramesPerCycle: 8
   UdpLowPayloadPattern: |
     UdpLowPayloadPattern
   UdpLowFrameLength: 1400

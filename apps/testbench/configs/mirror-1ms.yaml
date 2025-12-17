@@ -45,59 +45,65 @@ TSNHigh:
   TsnHighFrameLength: 128
   TsnHighThreadCpu: 18
   TsnHighDestination: 6c:fe:54:a0:84:f0
+  TsnHighIgnoreRxErrors: false
 TSNLow:
   TsnLowEnabled: true
   TsnLowTxTimeEnabled: false
   TsnLowTxTimeOffsetNS: 0
   TsnLowVid: 101
-  TsnLowNumFramesPerCycle: 1
+  TsnLowNumFramesPerCycle: 8
   TsnLowPayloadPattern: |
     TsnLowPayloadPattern
   TsnLowFrameLength: 128
   TsnLowThreadCpu: 19
   TsnLowDestination: 6c:fe:54:a0:84:f0
+  TsnLowIgnoreRxErrors: false
 RTC:
   RtcEnabled: false
   RtcVid: 102
-  RtcNumFramesPerCycle: 1
+  RtcNumFramesPerCycle: 8
   RtcPayloadPattern: |
     RtcPayloadPattern
   RtcFrameLength: 128
   RtcThreadCpu: 20
   RtcDestination: 6c:fe:54:a0:84:f0
+  RtcIgnoreRxErrors: false
 RTA:
   RtaEnabled: false
   RtaVid: 103
   RtaBurstPeriodNS: 200000000
-  RtaNumFramesPerCycle: 1
+  RtaNumFramesPerCycle: 8
   RtaPayloadPattern: |
     RtaPayloadPattern
   RtaFrameLength: 200
   RtaThreadCpu: 21
   RtaDestination: 6c:fe:54:a0:84:f0
+  RtaIgnoreRxErrors: false
 DCP:
   DcpEnabled: false
   DcpVid: 104
   DcpBurstPeriodNS: 2000000000
-  DcpNumFramesPerCycle: 1
+  DcpNumFramesPerCycle: 8
   DcpPayloadPattern: |
     DcpPayloadPattern
   DcpFrameLength: 200
   DcpThreadCpu: 22
   DcpDestination: 6c:fe:54:a0:84:f0
+  DcpIgnoreRxErrors: false
 LLDP:
   LldpEnabled: false
   LldpBurstPeriodNS: 5000000000
-  LldpNumFramesPerCycle: 1
+  LldpNumFramesPerCycle: 8
   LldpPayloadPattern: |
     LldpPayloadPattern
   LldpFrameLength: 200
   LldpThreadCpu: 23
   LldpDestination: 01:80:c2:00:00:0e
+  LldpIgnoreRxErrors: false
 UDPHigh:
   UdpHighEnabled: true
   UdpHighBurstPeriodNS: 1000000000
-  UdpHighNumFramesPerCycle: 1
+  UdpHighNumFramesPerCycle: 8
   UdpHighPayloadPattern: |
     UdpHighPayloadPattern
   UdpHighFrameLength: 1400
@@ -107,10 +113,11 @@ UDPHigh:
   UdpHighDestination: 10.10.1.1
   UdpHighSource: 10.10.1.2
   UdpHighMacDestination: 6c:fe:54:a0:84:f0
+  UdpHighIgnoreRxErrors: false
 UDPLow:
   UdpLowEnabled: false
   UdpLowBurstPeriodNS: 1000000000
-  UdpLowNumFramesPerCycle: 1
+  UdpLowNumFramesPerCycle: 8
   UdpLowPayloadPattern: |
     UdpLowPayloadPattern
   UdpLowFrameLength: 1400
@@ -120,6 +127,7 @@ UDPLow:
   UdpLowDestination: 10.10.1.1
   UdpLowSource: 10.10.1.2
   UdpLowMacDestination: 6c:fe:54:a0:84:f0
+  UdpLowIgnoreRxErrors: false
 L2:
   L2Enabled: false
   L2TxTimeEnabled: false
@@ -127,12 +135,13 @@ L2:
   L2Vid: 400
   L2Pcp: 6
   L2EtherType: 0x22f1
-  L2NumFramesPerCycle: 1
+  L2NumFramesPerCycle: 8
   L2PayloadPattern: |
     L2PayloadPattern
   L2FrameLength: 128
   L2ThreadCpu: 26
   L2Destination: 6c:fe:54:a0:84:f0
+  L2IgnoreRxErrors: false
 Stats:
   StatsHistogramEnabled: false
 Debug:

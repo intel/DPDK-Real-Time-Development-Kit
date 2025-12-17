@@ -22,15 +22,18 @@ Log:
   LogThreadPriority: 1
   LogThreadCpu: 15
   LogFile: /var/log/mirror-T1000.log
-  LogLevel: Debug
+  LogLevel: Inof
 LogViaMQTT:
-   LogViaMQTT: True
+   LogViaMQTT: true
    LogViaMQTTThreadCpu: 16
    LogViaMQTTThreadPriority: 1
    LogViaMQTTThreadPeriodNS: 1000000
    LogViaMQTTBrokerIP: 127.0.0.1
    LogViaMQTTBrokerPort: 1883
    LogViaMQTTMeasurementName: reference
+PKTHandler:
+  PktHandlerEnabled: true
+  PktHandlerThreadCpu: 17
 TSNHigh:
   TsnHighEnabled: true
   TsnHighTxTimeEnabled: false
@@ -40,12 +43,11 @@ TSNHigh:
   TsnHighPayloadPattern: |
     TsnHighPayloadPattern
   TsnHighFrameLength: 128
-  TsnHighLPortID: 0:0
-  TsnHighThreadCpu: 17
-  TsnHighDestination: 68:05:ca:ab:08:6c
+  TsnHighThreadCpu: 18
+  TsnHighDestination: 6c:fe:54:a0:84:f0
   TsnHighIgnoreRxErrors: true
 TSNLow:
-  TsnLowEnabled: false
+  TsnLowEnabled: true
   TsnLowTxTimeEnabled: false
   TsnLowTxTimeOffsetNS: 0
   TsnLowVid: 101
@@ -53,9 +55,8 @@ TSNLow:
   TsnLowPayloadPattern: |
     TsnLowPayloadPattern
   TsnLowFrameLength: 128
-  TsnLowLPortID: 0:1
-  TsnLowThreadCpu: 18
-  TsnLowDestination: 68:05:ca:ab:08:6c
+  TsnLowThreadCpu: 19
+  TsnLowDestination: 6c:fe:54:a0:84:f0
 RTC:
   RtcEnabled: false
   RtcVid: 102
@@ -63,9 +64,8 @@ RTC:
   RtcPayloadPattern: |
     RtcPayloadPattern
   RtcFrameLength: 128
-  RtcLPortID: 0:2
-  RtcThreadCpu: 19
-  RtcDestination: 68:05:ca:ab:08:6c
+  RtcThreadCpu: 20
+  RtcDestination: 6c:fe:54:a0:84:f0
 RTA:
   RtaEnabled: false
   RtaVid: 103
@@ -74,9 +74,8 @@ RTA:
   RtaPayloadPattern: |
     RtaPayloadPattern
   RtaFrameLength: 200
-  RtaLPortID: 0:3
-  RtaThreadCpu: 20
-  RtaDestination: 68:05:ca:ab:08:6c
+  RtaThreadCpu: 21
+  RtaDestination: 6c:fe:54:a0:84:f0
 DCP:
   DcpEnabled: false
   DcpVid: 104
@@ -85,9 +84,8 @@ DCP:
   DcpPayloadPattern: |
     DcpPayloadPattern
   DcpFrameLength: 200
-  DcpLPortID: 0:4
-  DcpThreadCpu: 21
-  DcpDestination: 68:05:ca:ab:08:6c
+  DcpThreadCpu: 22
+  DcpDestination: 6c:fe:54:a0:84:f0
 LLDP:
   LldpEnabled: false
   LldpBurstPeriodNS: 5000000000
@@ -95,23 +93,21 @@ LLDP:
   LldpPayloadPattern: |
     LldpPayloadPattern
   LldpFrameLength: 200
-  LldpLPortID: 0:3
-  LldpThreadCpu: 22
+  LldpThreadCpu: 23
   LldpDestination: 01:80:c2:00:00:0e
 UDPHigh:
-  UdpHighEnabled: false
+  UdpHighEnabled: true
   UdpHighBurstPeriodNS: 1000000000
   UdpHighNumFramesPerCycle: 8
   UdpHighPayloadPattern: |
     UdpHighPayloadPattern
   UdpHighFrameLength: 1400
-  UdpHighLPortID: 0:3
-  UdpHighThreadCpu: 23
+  UdpHighThreadCpu: 24
   UdpHighPort: 6666
   UdpHighSrcPort: 7777
   UdpHighDestination: 10.10.1.1
   UdpHighSource: 10.10.1.2
-  UdpHighMacDestination: 68:05:ca:ab:08:6c
+  UdpHighMacDestination: 6c:fe:54:a0:84:f0
 UDPLow:
   UdpLowEnabled: false
   UdpLowBurstPeriodNS: 1000000000
@@ -119,17 +115,15 @@ UDPLow:
   UdpLowPayloadPattern: |
     UdpLowPayloadPattern
   UdpLowFrameLength: 1400
-  UdpLowLPortID: 0:3
-  UdpLowThreadCpu: 24
+  UdpLowThreadCpu: 25
   UdpLowPort: 6667
   UdpLowSrcPort: 7778
   UdpLowDestination: 10.10.1.1
   UdpLowSource: 10.10.1.2
-  UdpLowMacDestination: 68:05:ca:ab:08:6c
+  UdpLowMacDestination: 6c:fe:54:a0:84:f0
 L2:
-  L2Name: L2
   L2Enabled: false
-  L2TxTimeEnabled: true
+  L2TxTimeEnabled: false
   L2TxTimeOffsetNS: 300000
   L2Vid: 400
   L2Pcp: 6
@@ -138,9 +132,8 @@ L2:
   L2PayloadPattern: |
     L2PayloadPattern
   L2FrameLength: 128
-  L2LPortID: 0:3
-  L2ThreadCpu: 25
-  L2Destination: 68:05:ca:ab:08:6c
+  L2ThreadCpu: 26
+  L2Destination: 6c:fe:54:a0:84:f0
 Stats:
   StatsHistogramEnabled: false
 Debug:
