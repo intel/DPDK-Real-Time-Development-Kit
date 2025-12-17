@@ -26,7 +26,6 @@ struct tsn_thread_configuration {
 	bool tsn_tx_enabled;
 	bool tsn_rx_enabled;
 	bool tsn_tx_time_enabled;
-	bool tsn_ignore_rx_errors;
 	uint64_t tsn_tx_time_offset_ns;
 	size_t tsn_num_frames_per_cycle;
 	const char *tsn_payload_pattern;

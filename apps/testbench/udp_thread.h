@@ -21,7 +21,6 @@ struct udp_thread_configuration {
 	lport_id_t udp_lport_id;
 	enum stat_frame_type frame_type;
 	const char *traffic_class;
-	bool udp_ignore_rx_errors;
 	uint64_t udp_burst_period_ns;
 	size_t udp_num_frames_per_cycle;
 	const char *udp_payload_pattern;

@@ -138,7 +138,6 @@ config_read_from_file(const char *config_file)
 
             CONFIG_STORE_BOOL_PARAM(TsnHighEnabled, tsn_high_enabled);
             CONFIG_STORE_BOOL_PARAM(TsnHighTxTimeEnabled, tsn_high_tx_time_enabled);
-            CONFIG_STORE_BOOL_PARAM(TsnHighIgnoreRxErrors, tsn_high_ignore_rx_errors);
             CONFIG_STORE_ULONG_PARAM(TsnHighTxTimeOffsetNS, tsn_high_tx_time_offset_ns);
             CONFIG_STORE_INT_PARAM(TsnHighVid, tsn_high_vid);
             CONFIG_STORE_INT_PARAM(TsnHighPcp, tsn_high_pcp);
@@ -155,7 +154,6 @@ config_read_from_file(const char *config_file)
 
             CONFIG_STORE_BOOL_PARAM(TsnLowEnabled, tsn_low_enabled);
             CONFIG_STORE_BOOL_PARAM(TsnLowTxTimeEnabled, tsn_low_tx_time_enabled);
-            CONFIG_STORE_BOOL_PARAM(TsnLowIgnoreRxErrors, tsn_low_ignore_rx_errors);
             CONFIG_STORE_ULONG_PARAM(TsnLowTxTimeOffsetNS, tsn_low_tx_time_offset_ns);
             CONFIG_STORE_INT_PARAM(TsnLowVid, tsn_low_vid);
             CONFIG_STORE_INT_PARAM(TsnLowPcp, tsn_low_pcp);
@@ -171,7 +169,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_MAC_PARAM(TsnLowDestination, tsn_low_destination);
 
             CONFIG_STORE_BOOL_PARAM(RtcEnabled, rtc_enabled);
-            CONFIG_STORE_BOOL_PARAM(RtcIgnoreRxErrors, rtc_ignore_rx_errors);
             CONFIG_STORE_INT_PARAM(RtcVid, rtc_vid);
             CONFIG_STORE_INT_PARAM(RtcPcp, rtc_pcp);
             CONFIG_STORE_ULONG_PARAM(RtcNumFramesPerCycle, rtc_num_frames_per_cycle);
@@ -185,7 +182,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_MAC_PARAM(RtcDestination, rtc_destination);
 
             CONFIG_STORE_BOOL_PARAM(RtaEnabled, rta_enabled);
-            CONFIG_STORE_BOOL_PARAM(RtaIgnoreRxErrors, rta_ignore_rx_errors);
             CONFIG_STORE_INT_PARAM(RtaVid, rta_vid);
             CONFIG_STORE_INT_PARAM(RtaPcp, rta_pcp);
             CONFIG_STORE_ULONG_PARAM(RtaBurstPeriodNS, rta_burst_period_ns);
@@ -200,7 +196,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_MAC_PARAM(RtaDestination, rta_destination);
 
             CONFIG_STORE_BOOL_PARAM(DcpEnabled, dcp_enabled);
-            CONFIG_STORE_BOOL_PARAM(DcpIgnoreRxErrors, dcp_ignore_rx_errors);
             CONFIG_STORE_INT_PARAM(DcpVid, dcp_vid);
             CONFIG_STORE_INT_PARAM(DcpPcp, dcp_pcp);
             CONFIG_STORE_ULONG_PARAM(DcpBurstPeriodNS, dcp_burst_period_ns);
@@ -211,7 +206,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_MAC_PARAM(DcpDestination, dcp_destination);
 
             CONFIG_STORE_BOOL_PARAM(LldpEnabled, lldp_enabled);
-            CONFIG_STORE_BOOL_PARAM(LldpIgnoreRxErrors, lldp_ignore_rx_errors);
             CONFIG_STORE_ULONG_PARAM(LldpBurstPeriodNS, lldp_burst_period_ns);
             CONFIG_STORE_ULONG_PARAM(LldpNumFramesPerCycle, lldp_num_frames_per_cycle);
             CONFIG_STORE_STRING_PARAM(LldpPayloadPattern, lldp_payload_pattern);
@@ -220,7 +214,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_MAC_PARAM(LldpDestination, lldp_destination);
 
             CONFIG_STORE_BOOL_PARAM(UdpHighEnabled, udp_high_enabled);
-            CONFIG_STORE_BOOL_PARAM(UdpHighIgnoreRxErrors, udp_high_ignore_rx_errors);
             CONFIG_STORE_ULONG_PARAM(UdpHighBurstPeriodNS, udp_high_burst_period_ns);
             CONFIG_STORE_ULONG_PARAM(UdpHighNumFramesPerCycle, udp_high_num_frames_per_cycle);
             CONFIG_STORE_STRING_PARAM(UdpHighPayloadPattern, udp_high_payload_pattern);
@@ -233,7 +226,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_MAC_PARAM(UdpHighMacDestination, udp_high_mac_destination);
 
             CONFIG_STORE_BOOL_PARAM(UdpLowEnabled, udp_low_enabled);
-            CONFIG_STORE_BOOL_PARAM(UdpLowIgnoreRxErrors, udp_low_ignore_rx_errors);
             CONFIG_STORE_ULONG_PARAM(UdpLowBurstPeriodNS, udp_low_burst_period_ns);
             CONFIG_STORE_ULONG_PARAM(UdpLowNumFramesPerCycle, udp_low_num_frames_per_cycle);
             CONFIG_STORE_STRING_PARAM(UdpLowPayloadPattern, udp_low_payload_pattern);
@@ -247,7 +239,6 @@ config_read_from_file(const char *config_file)
 
             CONFIG_STORE_BOOL_PARAM(L2Enabled, l2_enabled);
             CONFIG_STORE_BOOL_PARAM(L2TxTimeEnabled, l2_tx_time_enabled);
-            CONFIG_STORE_BOOL_PARAM(L2IgnoreRxErrors, l2_ignore_rx_errors);
             CONFIG_STORE_ULONG_PARAM(L2TxTimeOffsetNS, l2_tx_time_offset_ns);
             CONFIG_STORE_INT_PARAM(L2Vid, l2_vid);
             CONFIG_STORE_INT_PARAM(L2Pcp, l2_pcp);
@@ -395,7 +386,6 @@ tsn_high_config(void)
     if (app_config.tsn_high_enabled) {
         printf("   Enabled=%s\n", app_config.tsn_high_enabled ? "True" : "False");
         printf("   TxTimeEnabled=%s\n", app_config.tsn_high_tx_time_enabled ? "True" : "False");
-        printf("   IgnoreRxErrors=%s\n", app_config.tsn_high_ignore_rx_errors ? "True" : "False");
         printf("   TxTimeOffsetNS=%" PRIu64 "\n", app_config.tsn_high_tx_time_offset_ns);
         printf("   Vid=%d\n", app_config.tsn_high_vid);
         printf("   Pcp=%d\n", app_config.tsn_high_pcp);
@@ -425,7 +415,6 @@ tsn_low_config(void)
     if (app_config.tsn_low_enabled) {
         printf("   Enabled=%s\n", app_config.tsn_low_enabled ? "True" : "False");
         printf("   TxTimeEnabled=%s\n", app_config.tsn_low_tx_time_enabled ? "True" : "False");
-        printf("   IgnoreRxErrors=%s\n", app_config.tsn_low_ignore_rx_errors ? "True" : "False");
         printf("   TxTimeOffsetNS=%" PRIu64 "\n", app_config.tsn_low_tx_time_offset_ns);
         printf("   Vid=%d\n", app_config.tsn_low_vid);
         printf("   Pcp=%d\n", app_config.tsn_low_pcp);
@@ -454,7 +443,6 @@ rtc_config(void)
 {
     if (app_config.rtc_enabled) {
         printf("   Enabled=%s\n", app_config.rtc_enabled ? "True" : "False");
-        printf("   IgnoreRxErrors=%s\n", app_config.rtc_ignore_rx_errors ? "True" : "False");
         printf("   Vid=%d\n", app_config.rtc_vid);
         printf("   Pcp=%d\n", app_config.rtc_pcp);
         printf("   NumFramesPerCycle=%zu\n", app_config.rtc_num_frames_per_cycle);
@@ -482,7 +470,6 @@ rta_config(void)
 {
     if (app_config.rta_enabled) {
         printf("   Enabled=%s\n", app_config.rta_enabled ? "True" : "False");
-        printf("   IgnoreRxErrors=%s\n", app_config.rta_ignore_rx_errors ? "True" : "False");
         printf("   Vid=%d\n", app_config.rta_vid);
         printf("   Pcp=%d\n", app_config.rta_pcp);
         printf("   BurstPeriodNS=%'" PRIu64 "\n", app_config.rta_burst_period_ns);
@@ -511,7 +498,6 @@ dcp_config(void)
 {
     if (app_config.dcp_enabled) {
         printf("   Enabled=%s\n", app_config.dcp_enabled ? "True" : "False");
-        printf("   IgnoreRxErrors=%s\n", app_config.dcp_ignore_rx_errors ? "True" : "False");
         printf("   Vid=%d\n", app_config.dcp_vid);
         printf("   Pcp=%d\n", app_config.dcp_pcp);
         printf("   BurstPeriodNS=%'" PRIu64 "\n", app_config.dcp_burst_period_ns);
@@ -535,7 +521,6 @@ lldp_config(void)
 {
     if (app_config.lldp_enabled) {
         printf("   Enabled=%s\n", app_config.lldp_enabled ? "True" : "False");
-        printf("   IgnoreRxErrors=%s\n", app_config.dcp_ignore_rx_errors ? "True" : "False");
         printf("   BurstPeriodNS=%'" PRIu64 "\n", app_config.lldp_burst_period_ns);
         printf("   NumFramesPerCycle=%zu\n", app_config.lldp_num_frames_per_cycle);
         printf("   PayloadPattern=");
@@ -557,7 +542,6 @@ udp_high_config(void)
 {
     if (app_config.udp_high_enabled) {
         printf("   Enabled=%s\n", app_config.udp_high_enabled ? "True" : "False");
-        printf("   IgnoreRxErrors=%s\n", app_config.udp_high_ignore_rx_errors ? "True" : "False");
         printf("   BurstPeriodNS=%'" PRIu64 "\n", app_config.udp_high_burst_period_ns);
         printf("   NumFramesPerCycle=%zu\n", app_config.udp_high_num_frames_per_cycle);
         printf("   PayloadPattern=");
@@ -582,7 +566,6 @@ udp_low_config(void)
 {
     if (app_config.udp_low_enabled) {
         printf("   Enabled=%s\n", app_config.udp_low_enabled ? "True" : "False");
-        printf("   IgnoreRxErrors=%s\n", app_config.udp_low_ignore_rx_errors ? "True" : "False");
         printf("   BurstPeriodNS=%'" PRIu64 "\n", app_config.udp_low_burst_period_ns);
         printf("   NumFramesPerCycle=%zu\n", app_config.udp_low_num_frames_per_cycle);
         printf("   PayloadPattern=");
@@ -608,7 +591,6 @@ l2_config(void)
     if (app_config.l2_enabled) {
         printf("   Enabled=%s\n", app_config.l2_enabled ? "True" : "False");
         printf("   TxTimeEnabled=%s\n", app_config.l2_tx_time_enabled ? "True" : "False");
-        printf("   IgnoreRxErrors=%s\n", app_config.l2_ignore_rx_errors ? "True" : "False");
         printf("   TxTimeOffsetNS=%" PRIu64 "\n", app_config.l2_tx_time_offset_ns);
         printf("   Vid=%d\n", app_config.l2_vid);
         printf("   Pcp=%d\n", app_config.l2_pcp);
@@ -763,7 +745,6 @@ config_set_defaults(void)
     /* TSN High */
     app_config.tsn_high_enabled              = false;
     app_config.tsn_high_tx_time_enabled      = false;
-    app_config.tsn_high_ignore_rx_errors     = false;
     app_config.tsn_high_tx_time_offset_ns    = 0;
     app_config.tsn_high_vid                  = TSN_HIGH_VID_VALUE;
     app_config.tsn_high_pcp                  = TSN_HIGH_PCP_VALUE;
@@ -784,7 +765,6 @@ config_set_defaults(void)
     /* TSN Low */
     app_config.tsn_low_enabled              = false;
     app_config.tsn_low_tx_time_enabled      = false;
-    app_config.tsn_low_ignore_rx_errors     = false;
     app_config.tsn_low_tx_time_offset_ns    = 0;
     app_config.tsn_low_vid                  = TSN_LOW_VID_VALUE;
     app_config.tsn_low_pcp                  = TSN_LOW_PCP_VALUE;
@@ -804,7 +784,6 @@ config_set_defaults(void)
 
     /* Real Time Cyclic (RTC) */
     app_config.rtc_enabled              = false;
-    app_config.rtc_ignore_rx_errors     = false;
     app_config.rtc_vid                  = PROFINET_RT_VID_VALUE;
     app_config.rtc_pcp                  = RTC_PCP_VALUE;
     app_config.rtc_num_frames_per_cycle = 0;
@@ -823,7 +802,6 @@ config_set_defaults(void)
 
     /* Real Time Acyclic (RTA) */
     app_config.rta_enabled              = false;
-    app_config.rta_ignore_rx_errors     = false;
     app_config.rta_vid                  = PROFINET_RT_VID_VALUE;
     app_config.rta_pcp                  = RTA_PCP_VALUE;
     app_config.rta_burst_period_ns      = 200000000;
@@ -843,7 +821,6 @@ config_set_defaults(void)
 
     /* Discovery and Configuration Protocol (DCP) */
     app_config.dcp_enabled              = false;
-    app_config.dcp_ignore_rx_errors     = false;
     app_config.dcp_vid                  = PROFINET_RT_VID_VALUE;
     app_config.dcp_pcp                  = DCP_PCP_VALUE;
     app_config.dcp_burst_period_ns      = 2000000000;
@@ -859,7 +836,6 @@ config_set_defaults(void)
 
     /* Link Layer Discovery Protocol (LLDP) */
     app_config.lldp_enabled              = false;
-    app_config.lldp_ignore_rx_errors     = false;
     app_config.lldp_burst_period_ns      = 5000000000;
     app_config.lldp_num_frames_per_cycle = 0;
     app_config.lldp_payload_pattern      = strdup(default_payload_pattern);
@@ -873,7 +849,6 @@ config_set_defaults(void)
 
     /* User Datagram Protocol (UDP) High */
     app_config.udp_high_enabled              = false;
-    app_config.udp_high_ignore_rx_errors     = false;
     app_config.udp_high_burst_period_ns      = 1000000000;
     app_config.udp_high_num_frames_per_cycle = 0;
     app_config.udp_high_payload_pattern      = strdup(default_payload_pattern);
@@ -896,7 +871,6 @@ config_set_defaults(void)
 
     /* User Datagram Protocol (UDP) Low */
     app_config.udp_low_enabled              = false;
-    app_config.udp_low_ignore_rx_errors     = false;
     app_config.udp_low_burst_period_ns      = 1000000000;
     app_config.udp_low_num_frames_per_cycle = 0;
     app_config.udp_low_payload_pattern      = strdup(default_payload_pattern);
@@ -919,7 +893,6 @@ config_set_defaults(void)
 
     app_config.l2_enabled              = false;
     app_config.l2_tx_time_enabled      = false;
-    app_config.l2_ignore_rx_errors     = false;
     app_config.l2_tx_time_offset_ns    = 0;
     app_config.l2_vid                  = 100;
     app_config.l2_pcp                  = 6;

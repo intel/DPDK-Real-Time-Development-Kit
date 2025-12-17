@@ -54,7 +54,6 @@ struct application_config {
     /* TSN High */
     bool tsn_high_enabled;
     bool tsn_high_tx_time_enabled;
-    bool tsn_high_ignore_rx_errors;
     uint64_t tsn_high_tx_time_offset_ns;
     int tsn_high_vid;
     int tsn_high_pcp;
@@ -75,7 +74,6 @@ struct application_config {
     /* TSN Low */
     bool tsn_low_enabled;
     bool tsn_low_tx_time_enabled;
-    bool tsn_low_ignore_rx_errors;
     uint64_t tsn_low_tx_time_offset_ns;
     int tsn_low_vid;
     int tsn_low_pcp;
@@ -95,7 +93,6 @@ struct application_config {
 
     /* Real Time Cyclic (RTC) */
     bool rtc_enabled;
-    bool rtc_ignore_rx_errors;
     int rtc_vid;
     int rtc_pcp;
     size_t rtc_num_frames_per_cycle;
@@ -114,7 +111,6 @@ struct application_config {
 
     /* Real Time Acyclic (RTA) */
     bool rta_enabled;
-    bool rta_ignore_rx_errors;
     int rta_vid;
     int rta_pcp;
     uint64_t rta_burst_period_ns;
@@ -134,7 +130,6 @@ struct application_config {
 
     /* Discovery and Configuration Protocol (DCP) */
     bool dcp_enabled;
-    bool dcp_ignore_rx_errors;
     int dcp_vid;
     int dcp_pcp;
     uint64_t dcp_burst_period_ns;
@@ -148,7 +143,6 @@ struct application_config {
 
     /* Link Layer Discovery Protocol (LLDP) */
     bool lldp_enabled;
-    bool lldp_ignore_rx_errors;
     uint64_t lldp_burst_period_ns;
     size_t lldp_num_frames_per_cycle;
     char *lldp_payload_pattern;
@@ -160,7 +154,6 @@ struct application_config {
 
     /* User Datagram Protocol (UDP) High */
     bool udp_high_enabled;
-    bool udp_high_ignore_rx_errors;
     uint64_t udp_high_burst_period_ns;
     size_t udp_high_num_frames_per_cycle;
     char *udp_high_payload_pattern;
@@ -178,7 +171,6 @@ struct application_config {
 
     /* User Datagram Protocol (UDP) Low */
     bool udp_low_enabled;
-    bool udp_low_ignore_rx_errors;
     uint64_t udp_low_burst_period_ns;
     size_t udp_low_num_frames_per_cycle;
     char *udp_low_payload_pattern;
@@ -197,7 +189,6 @@ struct application_config {
     /* Generic Layer 2 (example: OPC/UA PubSub) */
     bool l2_enabled;
     bool l2_tx_time_enabled;
-    bool l2_ignore_rx_errors;
     uint64_t l2_tx_time_offset_ns;
     int l2_vid;
     int l2_pcp;

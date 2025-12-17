@@ -169,7 +169,6 @@ tsn_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
     const unsigned char *expected_pattern = (const unsigned char *)tsn_config->tsn_payload_pattern;
     struct security_context *security_context = thread_context->rx_security_context;
     const size_t expected_pattern_length      = tsn_config->tsn_payload_pattern_length;
-    const bool ignore_rx_errors               = tsn_config->tsn_ignore_rx_errors;
     size_t expected_frame_length              = tsn_config->tsn_frame_length;
     bool out_of_order, payload_mismatch, frame_id_mismatch;
     unsigned char plaintext[MAX_FRAME_SIZE];
@@ -344,20 +343,17 @@ tsn_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
                             payload_mismatch, frame_id_mismatch, tx_timestamp);
 
         if (frame_id_mismatch) {
-            if (!ignore_rx_errors)
-                log_message(LOG_LEVEL_WARNING,
-                            "%sRx: Frame[%" PRIu64 "] FrameId expected mismatch: %d != %d!\n",
-                            tsn_config->traffic_class, sequence_counter, tsn_config->frame_id,
-                            frame_id);
+            log_message(LOG_LEVEL_WARNING,
+                        "%sRx: Frame[%llu] FrameId expected mismatch: %u != %u!\n",
+                        tsn_config->traffic_class, (unsigned long long)sequence_counter,
+                        (unsigned)tsn_config->frame_id, (unsigned)frame_id);
             goto drop;
         }
         if (out_of_order) {
-            if (!ignore_rx_errors)
-                log_message(LOG_LEVEL_WARNING,
-                            "%sRx: Frame[%" PRIu64 "] SequenceCounter expected mismatch: %" PRIu64
-                            "!\n",
-                            tsn_config->traffic_class, sequence_counter,
-                            thread_context->rx_sequence_counter);
+            log_message(LOG_LEVEL_WARNING,
+                        "%sRx: Frame[%llu] SequenceCounter expected mismatch: %llu!\n",
+                        tsn_config->traffic_class, (unsigned long long)sequence_counter,
+                        (unsigned long long)thread_context->rx_sequence_counter);
             // adjust to missing sequence counters
             thread_context->rx_sequence_counter = ++sequence_counter;
             goto drop;
@@ -365,10 +361,8 @@ tsn_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
         thread_context->rx_sequence_counter++;
 
         if (payload_mismatch) {
-            if (!ignore_rx_errors)
-                log_message(LOG_LEVEL_WARNING,
-                            "%sRx: frame[%" PRIu64 "] Payload Pattern mismatch!\n",
-                            tsn_config->traffic_class, sequence_counter);
+            log_message(LOG_LEVEL_WARNING, "%sRx: frame[%llu] Payload Pattern mismatch!\n",
+                        tsn_config->traffic_class, (unsigned long long)sequence_counter);
             goto drop;
         }
 
@@ -541,7 +535,6 @@ tsn_low_threads_init(struct thread_context *tsn_thread_context)
     tsn_config->frame_type                    = TSN_LOW_FRAME_TYPE;
     tsn_config->traffic_class                 = stat_frame_type_to_string(TSN_LOW_FRAME_TYPE);
     tsn_config->tsn_tx_time_enabled           = app_config.tsn_low_tx_time_enabled;
-    tsn_config->tsn_ignore_rx_errors          = app_config.tsn_low_ignore_rx_errors;
     tsn_config->tsn_tx_time_offset_ns         = app_config.tsn_low_tx_time_offset_ns;
     tsn_config->tsn_num_frames_per_cycle      = app_config.tsn_low_num_frames_per_cycle;
     tsn_config->tsn_payload_pattern           = app_config.tsn_low_payload_pattern;
@@ -612,7 +605,6 @@ tsn_high_threads_init(struct thread_context *tsn_thread_context)
     tsn_config->frame_type                    = TSN_HIGH_FRAME_TYPE;
     tsn_config->traffic_class                 = stat_frame_type_to_string(TSN_HIGH_FRAME_TYPE);
     tsn_config->tsn_tx_time_enabled           = app_config.tsn_high_tx_time_enabled;
-    tsn_config->tsn_ignore_rx_errors          = app_config.tsn_high_ignore_rx_errors;
     tsn_config->tsn_tx_time_offset_ns         = app_config.tsn_high_tx_time_offset_ns;
     tsn_config->tsn_num_frames_per_cycle      = app_config.tsn_high_num_frames_per_cycle;
     tsn_config->tsn_payload_pattern           = app_config.tsn_high_payload_pattern;

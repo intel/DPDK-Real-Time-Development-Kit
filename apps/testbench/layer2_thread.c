@@ -165,7 +165,6 @@ l2_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
     const unsigned char *expected_pattern = (const unsigned char *)app_config.l2_payload_pattern;
     const size_t expected_pattern_length  = app_config.l2_payload_pattern_length;
     const size_t num_frames_per_cycle     = app_config.l2_num_frames_per_cycle;
-    const bool ignore_rx_errors           = app_config.l2_ignore_rx_errors;
     size_t expected_frame_length          = app_config.l2_frame_length;
     bool out_of_order, payload_mismatch, frame_id_mismatch;
     uint64_t tx_mirror;
@@ -233,10 +232,9 @@ l2_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
                             frame_id_mismatch, tx_timestamp);
 
         if (out_of_order) {
-            if (!ignore_rx_errors)
-                log_message(LOG_LEVEL_WARNING,
-                            "L2Rx: frame[%" PRIu64 "] SequenceCounter mismatch: %" PRIu64 "!\n",
-                            sequence_counter, thread_context->rx_sequence_counter);
+            log_message(LOG_LEVEL_WARNING,
+                        "L2Rx: frame[%" PRIu64 "] SequenceCounter mismatch: %" PRIu64 "!\n",
+                        sequence_counter, thread_context->rx_sequence_counter);
             // adjust to missing sequence counters
             thread_context->rx_sequence_counter = ++sequence_counter;
             goto drop;

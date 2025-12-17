@@ -164,7 +164,6 @@ rta_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
     struct security_context *security_context = thread_context->rx_security_context;
     const size_t expected_pattern_length      = app_config.rta_payload_pattern_length;
     const size_t num_frames_per_cycle         = app_config.rta_num_frames_per_cycle;
-    const bool ignore_rx_errors               = app_config.rta_ignore_rx_errors;
     size_t expected_frame_length              = app_config.rta_frame_length;
     bool out_of_order, payload_mismatch, frame_id_mismatch;
     unsigned char plaintext[MAX_FRAME_SIZE];
@@ -344,10 +343,9 @@ rta_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
         }
 
         if (out_of_order) {
-            if (!ignore_rx_errors)
-                log_message(LOG_LEVEL_WARNING,
-                            "RtaRx: frame[%" PRIu64 "] SequenceCounter mismatch: %" PRIu64 "!\n",
-                            sequence_counter, thread_context->rx_sequence_counter);
+            log_message(LOG_LEVEL_WARNING,
+                        "RtaRx: frame[%" PRIu64 "] SequenceCounter mismatch: %" PRIu64 "!\n",
+                        sequence_counter, thread_context->rx_sequence_counter);
             // adjust to missing sequence counters
             thread_context->rx_sequence_counter = ++sequence_counter;
             goto drop;

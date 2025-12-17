@@ -43,7 +43,6 @@ TSNHigh:
   TsnHighLPortID: 0:0
   TsnHighThreadCpu: 16
   TsnHighDestination: 68:05:CA:AB:08:88
-  TsnHighIgnoreRxErrors: false
 TSNLow:
   TsnLowEnabled: false
   TsnLowTxTimeEnabled: false
@@ -56,7 +55,6 @@ TSNLow:
   TsnLowLPortID: 0:1
   TsnLowThreadCpu: 17
   TsnLowDestination: 68:05:CA:AB:08:88
-  TsnLowIgnoreRxErrors: false
 RTC:
   RtcEnabled: false
   RtcVid: 102
@@ -67,7 +65,6 @@ RTC:
   RtcLPortID: 0:2
   RtcThreadCpu: 18
   RtcDestination: 68:05:CA:AB:08:88
-  RtcIgnoreRxErrors: false
 RTA:
   RtaEnabled: false
   RtaVid: 103
@@ -79,7 +76,6 @@ RTA:
   RtaLPortID: 0:3
   RtaThreadCpu: 19
   RtaDestination: 68:05:CA:AB:08:88
-  RtaIgnoreRxErrors: false
 DCP:
   DcpEnabled: false
   DcpVid: 104
@@ -91,7 +87,6 @@ DCP:
   DcpLPortID: 0:4
   DcpThreadCpu: 20
   DcpDestination: 68:05:CA:AB:08:88
-  DcpIgnoreRxErrors: false
 LLDP:
   LldpEnabled: false
   LldpBurstPeriodNS: 5000000000
@@ -102,7 +97,6 @@ LLDP:
   LldpLPortID: 0:3
   LldpThreadCpu: 21
   LldpDestination: 01:80:c2:00:00:0e
-  LldpIgnoreRxErrors: false
 UDPHigh:
   UdpHighEnabled: false
   UdpHighBurstPeriodNS: 1000000000
@@ -117,7 +111,6 @@ UDPHigh:
   UdpHighDestination: 192.168.176.115
   UdpHighSource: 192.168.176.109
   UdpHighMacDestination: 68:05:CA:AB:08:88
-  UdpHighIgnoreRxErrors: false
 UDPLow:
   UdpLowEnabled: false
   UdpLowBurstPeriodNS: 1000000000
@@ -132,7 +125,6 @@ UDPLow:
   UdpHighDestination: 192.168.176.115
   UdpHighSource: 192.168.176.109
   UdpLowMacDestination: 68:05:CA:AB:08:88
-  UdpLowIgnoreRxErrors: false
 L2:
   L2Name: L2
   L2Enabled: false
@@ -148,7 +140,6 @@ L2:
   L2LPortID: 0:3
   L2ThreadCpu: 24
   L2Destination: 68:05:CA:AB:08:88
-  L2IgnoreRxErrors: false
 Stats:
   StatsHistogramEnabled: false
 Debug:

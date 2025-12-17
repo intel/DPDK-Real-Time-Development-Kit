@@ -140,7 +140,6 @@ validate_rx_frame(const char *prefix, int frame_id, struct rte_mbuf *mbuf,
 	uint64_t sequence_counter, tx_timestamp, tx_mirror;
     bool vlan_tag_missing = false, out_of_order = false;
 	bool payload_mismatch = false, frame_id_mismatch = false;
-	const bool ignore_rx_errors;
     uint16_t ether_type;
 
     if (len < sizeof(struct vlan_ethernet_header)) {
@@ -189,10 +188,6 @@ validate_rx_frame(const char *prefix, int frame_id, struct rte_mbuf *mbuf,
                         frame_id_mismatch, tx_timestamp);
 
     if (out_of_order) {
-        if (!ignore_rx_errors)
-            log_message(LOG_LEVEL_WARNING,
-                        "%sRx: frame[%" PRIu64 "] SequenceCounter mismatch: %" PRIu64 "!\n",
-                        prefix, sequence_counter, thread_context->rx_sequence_counter);
         // adjust to missing sequence counters
         thread_context->rx_sequence_counter = ++sequence_counter;
         goto err_exit;

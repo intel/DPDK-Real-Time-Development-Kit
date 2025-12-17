@@ -193,7 +193,6 @@ udp_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
     const unsigned char *expected_pattern = (const unsigned char *)udp_config->udp_payload_pattern;
     const size_t expected_pattern_length  = udp_config->udp_payload_pattern_length;
     const size_t num_frames_per_cycle     = udp_config->udp_num_frames_per_cycle;
-    const bool ignore_rx_errors           = udp_config->udp_ignore_rx_errors;
     const size_t frame_length             = udp_config->udp_frame_length;
     unsigned char *frame_data;
     size_t len;
@@ -241,11 +240,10 @@ udp_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
                             payload_mismatch, frame_id_mismatch, tx_timestamp);
 
         if (out_of_order) {
-            if (!ignore_rx_errors)
-                log_message(LOG_LEVEL_WARNING,
-                            "%sRx: frame[%" PRIu64 "] SequenceCounter mismatch: %" PRIu64 "!\n",
-                            udp_config->traffic_class, sequence_counter,
-                            thread_context->rx_sequence_counter);
+            log_message(LOG_LEVEL_WARNING,
+                        "%sRx: frame[%" PRIu64 "] SequenceCounter mismatch: %" PRIu64 "!\n",
+                        udp_config->traffic_class, sequence_counter,
+                        thread_context->rx_sequence_counter);
             // adjust to missing sequence counters
             thread_context->rx_sequence_counter = ++sequence_counter;
             goto drop;
@@ -253,10 +251,9 @@ udp_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
         thread_context->rx_sequence_counter++;
 
         if (payload_mismatch) {
-            if (!ignore_rx_errors)
-                log_message(LOG_LEVEL_WARNING,
-                            "%sRx: frame[%" PRIu64 "] Payload Pattern mismatch!\n",
-                            udp_config->traffic_class, sequence_counter);
+            log_message(LOG_LEVEL_WARNING,
+                        "%sRx: frame[%" PRIu64 "] Payload Pattern mismatch!\n",
+                        udp_config->traffic_class, sequence_counter);
             goto drop;
         }
 
@@ -400,7 +397,6 @@ udp_low_threads_init(struct thread_context *udp_thread_context)
     udp_config->udp_lport_id               = app_config.udp_low_lport_id;
     udp_config->frame_type                 = UDP_LOW_FRAME_TYPE;
     udp_config->traffic_class              = stat_frame_type_to_string(UDP_LOW_FRAME_TYPE);
-    udp_config->udp_ignore_rx_errors       = app_config.udp_low_ignore_rx_errors;
     udp_config->udp_burst_period_ns        = app_config.udp_low_burst_period_ns;
     udp_config->udp_num_frames_per_cycle   = app_config.udp_low_num_frames_per_cycle;
     udp_config->udp_payload_pattern        = app_config.udp_low_payload_pattern;
@@ -462,7 +458,6 @@ udp_high_threads_init(struct thread_context *udp_thread_context)
     udp_config->udp_lport_id               = app_config.udp_high_lport_id;
     udp_config->frame_type                 = UDP_HIGH_FRAME_TYPE;
     udp_config->traffic_class              = stat_frame_type_to_string(UDP_HIGH_FRAME_TYPE);
-    udp_config->udp_ignore_rx_errors       = app_config.udp_high_ignore_rx_errors;
     udp_config->udp_burst_period_ns        = app_config.udp_high_burst_period_ns;
     udp_config->udp_num_frames_per_cycle   = app_config.udp_high_num_frames_per_cycle;
     udp_config->udp_payload_pattern        = app_config.udp_high_payload_pattern;
