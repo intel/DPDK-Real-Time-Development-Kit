@@ -128,11 +128,6 @@ config_read_from_file(const char *config_file)
             CONFIG_STORE_ULONG_PARAM(ApplicationBaseCycleTimeNS, application_base_cycle_time_ns);
             CONFIG_STORE_ULONG_PARAM(ApplicationTxBaseOffsetNS, application_tx_base_offset_ns);
             CONFIG_STORE_ULONG_PARAM(ApplicationRxBaseOffsetNS, application_rx_base_offset_ns);
-            CONFIG_STORE_UINT_PARAM(ApplicationNumMbufs, application_num_mbufs);
-            CONFIG_STORE_UINT_PARAM(ApplicationMbufSize, application_mbuf_size);
-            CONFIG_STORE_UINT_PARAM(ApplicationCacheSize, application_cache_size);
-            CONFIG_STORE_UINT_PARAM(ApplicationNumRxDescriptors, application_num_rx_descriptors);
-            CONFIG_STORE_UINT_PARAM(ApplicationNumTxDescriptors, application_num_tx_descriptors);
             CONFIG_STORE_BOOL_PARAM(ApplicationLinkHalfDuplex, application_link_half_duplex);
             CONFIG_STORE_UINT_PARAM(ApplicationLinkSpeed, application_link_speed);
             CONFIG_STORE_UINT_PARAM(ApplicationWaitTimeBeforeStart,

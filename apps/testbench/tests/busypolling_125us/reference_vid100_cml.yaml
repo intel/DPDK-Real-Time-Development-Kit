@@ -10,7 +10,7 @@
 #
 Application:
   ApplicationClockId: CLOCK_TAI
-  # ApplicationBaseStartTimeNS: 0
+  ApplicationBaseStartTimeNS: 0
   ApplicationBaseCycleTimeNS: 125000
   ApplicationTxBaseOffsetNS: 90000
   ApplicationRxBaseOffsetNS: 40000

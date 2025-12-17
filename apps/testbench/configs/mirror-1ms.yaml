@@ -10,29 +10,30 @@
 #
 Application:
   ApplicationClockId: CLOCK_TAI
-  # ApplicationBaseStartTimeNS: 0
+  ApplicationBaseStartTimeNS: 0
   ApplicationBaseCycleTimeNS: 10000000
   ApplicationTxBaseOffsetNS: 800000
   ApplicationRxBaseOffsetNS: 600000
-  ApplicationNumMbufs: 1024
-  ApplicationMbufSize: 0
-  ApplicationCacheSize: 64
-  ApplicationNumRxDescriptors: 0
-  ApplicationNumTxDescriptors: 0
+  ApplicationLinkSpeed: 0 # 0=AutoNeg or link speed in Mbps 100, 1000, 2500, 10000, 100000, etc.
+  ApplicationLinkHalfDuplex: false # false=full duplex, true=half duplex for 10Mbps or 100Mbps
+  ApplicationWaitTimeSeconds: 0 # Need to be 8 or higher as a power of 2, default: 8
 Log:
   LogThreadPeriodNS: 500000000
   LogThreadPriority: 1
-  LogThreadCpu: 11
+  LogThreadCpu: 15
   LogFile: /var/log/mirror-1ms.log
-  LogLevel: Debug
+  LogLevel: Info
 LogViaMQTT:
-   LogViaMQTT: false
-   LogViaMQTTThreadCpu: 12
+   LogViaMQTT: true
+   LogViaMQTTThreadCpu: 16
    LogViaMQTTThreadPriority: 1
    LogViaMQTTThreadPeriodNS: 1000000
    LogViaMQTTBrokerIP: 127.0.0.1
    LogViaMQTTBrokerPort: 1883
    LogViaMQTTMeasurementName: reference
+PKTHandler:
+  PktHandlerEnabled: true
+  PktHandlerThreadCpu: 17
 TSNHigh:
   TsnHighEnabled: true
   TsnHighTxTimeEnabled: false
@@ -42,106 +43,96 @@ TSNHigh:
   TsnHighPayloadPattern: |
     TsnHighPayloadPattern
   TsnHighFrameLength: 128
-  TsnHighLPortID: 0:0
-  TsnHighThreadCpu: 13
-  TsnHighDestination: 68:05:CA:AB:08:88
+  TsnHighThreadCpu: 18
+  TsnHighDestination: 6c:fe:54:a0:84:f0
 TSNLow:
-  TsnLowEnabled: false
+  TsnLowEnabled: true
   TsnLowTxTimeEnabled: false
   TsnLowTxTimeOffsetNS: 0
   TsnLowVid: 101
-  TsnLowNumFramesPerCycle: 8
+  TsnLowNumFramesPerCycle: 1
   TsnLowPayloadPattern: |
     TsnLowPayloadPattern
   TsnLowFrameLength: 128
-  TsnLowLPortID: 0:1
-  TsnLowThreadCpu: 14
-  TsnLowDestination: 68:05:CA:AB:08:88
+  TsnLowThreadCpu: 19
+  TsnLowDestination: 6c:fe:54:a0:84:f0
 RTC:
   RtcEnabled: false
   RtcVid: 102
-  RtcNumFramesPerCycle: 8
+  RtcNumFramesPerCycle: 1
   RtcPayloadPattern: |
     RtcPayloadPattern
   RtcFrameLength: 128
-  RtcLPortID: 0:2
-  RtcThreadCpu: 15
-  RtcDestination: 68:05:CA:AB:08:88
+  RtcThreadCpu: 20
+  RtcDestination: 6c:fe:54:a0:84:f0
 RTA:
   RtaEnabled: false
   RtaVid: 103
   RtaBurstPeriodNS: 200000000
-  RtaNumFramesPerCycle: 8
+  RtaNumFramesPerCycle: 1
   RtaPayloadPattern: |
     RtaPayloadPattern
   RtaFrameLength: 200
-  RtaLPortID: 0:3
-  RtaThreadCpu: 16
-  RtaDestination: 68:05:CA:AB:08:88
+  RtaThreadCpu: 21
+  RtaDestination: 6c:fe:54:a0:84:f0
 DCP:
   DcpEnabled: false
   DcpVid: 104
   DcpBurstPeriodNS: 2000000000
-  DcpNumFramesPerCycle: 8
+  DcpNumFramesPerCycle: 1
   DcpPayloadPattern: |
     DcpPayloadPattern
   DcpFrameLength: 200
-  DcpLPortID: 0:4
-  DcpThreadCpu: 17
-  DcpDestination: 68:05:CA:AB:08:88
+  DcpThreadCpu: 22
+  DcpDestination: 6c:fe:54:a0:84:f0
 LLDP:
   LldpEnabled: false
   LldpBurstPeriodNS: 5000000000
-  LldpNumFramesPerCycle: 8
+  LldpNumFramesPerCycle: 1
   LldpPayloadPattern: |
     LldpPayloadPattern
   LldpFrameLength: 200
-  LldpLPortID: 0:3
-  LldpThreadCpu: 18
+  LldpThreadCpu: 23
   LldpDestination: 01:80:c2:00:00:0e
 UDPHigh:
-  UdpHighEnabled: false
+  UdpHighEnabled: true
   UdpHighBurstPeriodNS: 1000000000
-  UdpHighNumFramesPerCycle: 8
+  UdpHighNumFramesPerCycle: 1
   UdpHighPayloadPattern: |
     UdpHighPayloadPattern
   UdpHighFrameLength: 1400
-  UdpHighLPortID: 0:3
-  UdpHighThreadCpu: 19
+  UdpHighThreadCpu: 24
   UdpHighPort: 6666
   UdpHighSrcPort: 7777
-  UdpHighDestination: 192.168.176.115
-  UdpHighSource: 192.168.176.109
-  UdpHighMacDestination: 68:05:CA:AB:08:88
+  UdpHighDestination: 10.10.1.1
+  UdpHighSource: 10.10.1.2
+  UdpHighMacDestination: 6c:fe:54:a0:84:f0
 UDPLow:
   UdpLowEnabled: false
   UdpLowBurstPeriodNS: 1000000000
-  UdpLowNumFramesPerCycle: 8
+  UdpLowNumFramesPerCycle: 1
   UdpLowPayloadPattern: |
     UdpLowPayloadPattern
   UdpLowFrameLength: 1400
-  UdpLowLPortID: 0:3
-  UdpLowThreadCpu: 20
+  UdpLowThreadCpu: 25
   UdpLowPort: 6667
   UdpLowSrcPort: 7778
-  UdpHighDestination: 192.168.176.115
-  UdpHighSource: 192.168.176.109
-  UdpLowMacDestination: 68:05:CA:AB:08:88
+  UdpLowDestination: 10.10.1.1
+  UdpLowSource: 10.10.1.2
+  UdpLowMacDestination: 6c:fe:54:a0:84:f0
 L2:
-  L2Name: L2
   L2Enabled: false
-  L2TxTimeEnabled: true
+  L2TxTimeEnabled: false
   L2TxTimeOffsetNS: 300000
   L2Vid: 400
   L2Pcp: 6
   L2EtherType: 0x22f1
-  L2NumFramesPerCycle: 8
+  L2NumFramesPerCycle: 1
   L2PayloadPattern: |
     L2PayloadPattern
   L2FrameLength: 128
-  L2LPortID: 0:3
-  L2ThreadCpu: 21
-  L2Destination: 68:05:CA:AB:08:88
+  L2ThreadCpu: 26
+  L2Destination: 6c:fe:54:a0:84:f0
 Stats:
   StatsHistogramEnabled: false
 Debug:

@@ -171,7 +171,7 @@ tsn_configure_lports(void)
 
 	rte_eth_dev_get_port_by_name("net_pflow", &port_id);
 	app_config.pkt_handler_lport_id = lport_make(port_id, 0);
-	fprintf(stderr, "LPortID for PktHandler: %s\n", lport_format(app_config.pkt_handler_lport_id));
+	fprintf(stderr, "         LPortID for PktHandler: %s\n", lport_format(app_config.pkt_handler_lport_id));
 
     _(pkt_handler, PktHdlrPhy, app_config.pkt_handler_physical_lport_id, 0, (128 * 1024), 0);
     _(pkt_handler, PktHdlr, app_config.pkt_handler_lport_id, 0, 2048, 16384);

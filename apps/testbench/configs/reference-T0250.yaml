@@ -10,15 +10,13 @@
 #
 Application:
   ApplicationClockId: CLOCK_TAI
-  # ApplicationBaseStartTimeNS: 0
+  ApplicationBaseStartTimeNS: 0
   ApplicationBaseCycleTimeNS: 250000
   ApplicationTxBaseOffsetNS: 200000
   ApplicationRxBaseOffsetNS: 150000
-  ApplicationNumMbufs: 1024
-  ApplicationMbufSize: 0
-  ApplicationCacheSize: 64
-  ApplicationNumRxDescriptors: 0
-  ApplicationNumTxDescriptors: 0
+  ApplicationLinkSpeed: 0 # 0=AutoNeg or link speed in Mbps 100, 1000, 2500, 10000, 100000, etc.
+  ApplicationLinkHalfDuplex: false # false=full duplex, true=half duplex for 10Mbps or 100Mbps
+  ApplicationWaitTimeSeconds: 0 # Need to be 8 or higher as a power of 2, default: 8
 Log:
   LogThreadPeriodNS: 500000000
   LogThreadPriority: 1

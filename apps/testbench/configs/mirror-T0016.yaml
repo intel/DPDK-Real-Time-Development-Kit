@@ -10,21 +10,19 @@
 #
 Application:
   ApplicationClockId: CLOCK_TAI
-  # ApplicationBaseStartTimeNS: 0
+  ApplicationBaseStartTimeNS: 0
   ApplicationBaseCycleTimeNS: 15625
   ApplicationTxBaseOffsetNS: 12500
   ApplicationRxBaseOffsetNS: 9375
-  ApplicationNumMbufs: 1024
-  ApplicationMbufSize: 0
-  ApplicationCacheSize: 64
-  ApplicationNumRxDescriptors: 0
-  ApplicationNumTxDescriptors: 0
+  ApplicationLinkSpeed: 0 # 0=AutoNeg or link speed in Mbps 100, 1000, 2500, 10000, 100000, etc.
+  ApplicationLinkHalfDuplex: false # false=full duplex, true=half duplex for 10Mbps or 100Mbps
+  ApplicationWaitTimeSeconds: 0 # Need to be 8 or higher as a power of 2, default: 8
 Log:
   LogThreadPeriodNS: 500000000
   LogThreadPriority: 1
   LogThreadCpu: 15
   LogFile: /var/log/mirror-T16.log
-  LogLevel: Debug
+  LogLevel: Info
 LogViaMQTT:
    LogViaMQTT: True
    LogViaMQTTThreadCpu: 16
@@ -33,24 +31,26 @@ LogViaMQTT:
    LogViaMQTTBrokerIP: 127.0.0.1
    LogViaMQTTBrokerPort: 1883
    LogViaMQTTMeasurementName: reference
+PKTHandler:
+  PktHandlerEnabled: true
+  PktHandlerThreadCpu: 17
 TSNHigh:
   TsnHighEnabled: true
   TsnHighTxTimeEnabled: false
   TsnHighTxTimeOffsetNS: 0
   TsnHighVid: 100
-  TsnHighNumFramesPerCycle: 2
+  TsnHighNumFramesPerCycle: 1
   TsnHighPayloadPattern: |
     TsnHighPayloadPattern
   TsnHighFrameLength: 128
-  TsnHighLPortID: 0:0
-  TsnHighThreadCpu: 17
-  TsnHighDestination: 68:05:ca:ab:08:6c
+  TsnHighThreadCpu: 18
+  TsnHighDestination: 6c:fe:54:a0:84:f0
 TSNLow:
-  TsnLowEnabled: false
+  TsnLowEnabled: true
   TsnLowTxTimeEnabled: false
   TsnLowTxTimeOffsetNS: 0
   TsnLowVid: 101
-  TsnLowNumFramesPerCycle: 8
+  TsnLowNumFramesPerCycle: 1
   TsnLowPayloadPattern: |
     TsnLowPayloadPattern
   TsnLowFrameLength: 128
