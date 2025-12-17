@@ -784,6 +784,7 @@ config_set_defaults(void)
     /* TSN Low */
     app_config.tsn_low_enabled              = false;
     app_config.tsn_low_tx_time_enabled      = false;
+    app_config.tsn_low_ignore_rx_errors     = false;
     app_config.tsn_low_tx_time_offset_ns    = 0;
     app_config.tsn_low_vid                  = TSN_LOW_VID_VALUE;
     app_config.tsn_low_pcp                  = TSN_LOW_PCP_VALUE;
