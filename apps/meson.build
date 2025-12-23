@@ -4,3 +4,4 @@
 subdir('launch-time')
 subdir('testbench')
 subdir('ratt')
+subdir('cnp')

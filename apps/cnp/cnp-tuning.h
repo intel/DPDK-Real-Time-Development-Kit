@@ -7,8 +7,8 @@
  * performance sending a fixed set of packets at a given cycle time.
  */
 
-#ifndef _LAUNCH_TIME_H_
-#define _LAUNCH_TIME_H_
+#ifndef _CNP_TUNING_H_
+#define _CNP_TUNING_H_
 
 #include <getopt.h>
 #include <inttypes.h>
@@ -69,7 +69,6 @@ typedef struct {
     uint16_t pad0;                        // Padding for alignment
     uint32_t link_speed;                  // Link speed in Mbps
     uint32_t run_duration_sec;            // Run duration in seconds
-    uint32_t tx_burst_offset_ns;          // TX burst offset in nanoseconds before cycle end
     char *burst_length_str;               // Burst/Length string 'Burst/Length'
     char *run_duration_str;               // Run duration string
     char *dest_mac_str;                   // Destination MAC address in string format
