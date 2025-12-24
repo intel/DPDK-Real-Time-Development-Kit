@@ -8,7 +8,6 @@
  */
 
 #include "cnp-tuning.h"
-#include "mqtt.h"
 
 #include <rte_mbuf_dyn.h>
 
@@ -96,29 +95,6 @@ port_init(lport_t *lport)
     if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE)
         port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
 
-    if (_btst(HW_TIMESTAMP)) {
-        if (dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP) {
-            printf("Device supports HW Timestamping\n");
-            port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
-        } else {
-            _bclr(HW_TIMESTAMP);
-            rte_exit(EXIT_FAILURE, "Warning: HW Timestamping is not supported by this device\n");
-        }
-    }
-
-    if (_btst(LAUNCH_TIME)) {
-        if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_SEND_ON_TIMESTAMP) {
-            printf("Device supports Send on Timestamp\n");
-            port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_SEND_ON_TIMESTAMP;
-        } else {
-            _bclr(LAUNCH_TIME);
-            rte_exit(EXIT_FAILURE, "Warning: Send on timestamp is not supported by this device\n");
-        }
-    }
-
-    if (pinfo->link_speed != RTE_ETH_SPEED_NUM_UNKNOWN)
-        port_conf.link_speeds = rte_eth_speed_bitflag(pinfo->link_speed, RTE_ETH_LINK_FULL_DUPLEX);
-
     /* Configure the Ethernet device. */
     retval = rte_eth_dev_configure(pid, rx_rings, tx_rings, &port_conf);
     if (retval != 0)
@@ -167,7 +143,7 @@ port_init(lport_t *lport)
     printf("Port %u MAC %s\n", pid, buff);
 
     // Convert the MAC address string into binary format
-    rte_ether_unformat_addr(pinfo->dest_mac_str, &lport->dst_mac);
+    rte_ether_unformat_addr(pinfo->dst_mac_str, &lport->dst_mac);
 
     if (rte_eth_dev_set_ptypes(pid, RTE_PTYPE_UNKNOWN, NULL, 0) < 0)
         rte_exit(EXIT_FAILURE, "Port %u, Failed to disable Ptype parsing\n", pid);
@@ -183,36 +159,6 @@ port_init(lport_t *lport)
             printf("Promiscuous mode enable failed: %s\n", rte_strerror(-retval));
             return retval;
         }
-    }
-
-    if (_btst(HW_TIMESTAMP)) {
-        int offset = 0;
-        uint64_t flag = 0;
-
-		if ((retval = rte_eth_timesync_enable(pid)) != 0)
-            rte_exit(EXIT_FAILURE, "rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
-
-        retval = rte_mbuf_dyn_rx_timestamp_register(&offset, &flag);
-        if (retval < 0)
-            rte_exit(EXIT_FAILURE, "Failed to register Rx timestamp dynamic field/flag: %s\n",
-                     rte_strerror(-retval));
-        pinfo->rx_timestamp_offset = offset;
-        pinfo->rx_timestamp_flag   = flag;
-        fprintf(stderr, ">> MBUF Hardware    Timestamp offset %d, bit %016"PRIu64"\n",
-                pinfo->rx_timestamp_offset, pinfo->rx_timestamp_flag);
-    }
-    if (_btst(LAUNCH_TIME)) {
-        int offset = 0;
-        uint64_t flag = 0;
-
-        retval = rte_mbuf_dyn_tx_timestamp_register(&offset, &flag);
-        if (retval < 0)
-            rte_exit(EXIT_FAILURE, "Failed to register Tx timestamp dynamic field/flag: %s\n",
-                     rte_strerror(-retval));
-        pinfo->tx_timestamp_offset = offset;
-        pinfo->tx_timestamp_flag   = flag;
-        fprintf(stderr, ">> MBUF Launch time Timestamp offset %d, bit %016"PRIu64"\n",
-                pinfo->tx_timestamp_offset, pinfo->tx_timestamp_flag);
     }
 
     return 0;

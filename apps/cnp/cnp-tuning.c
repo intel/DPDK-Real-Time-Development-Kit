@@ -8,8 +8,6 @@
  */
 
 #include "cnp-tuning.h"
-#include "log.h"
-#include "mqtt.h"
 
 static info_t info = {0};
 info_t *pinfo      = &info;
@@ -28,8 +26,8 @@ signal_handler(int signum)
 int
 main(int argc, char *argv[])
 {
-    uint16_t nb_ports, nb_lcores, port_id, nb_lcores_needed;
-    int ret, main_lcore_id;
+    uint16_t nb_ports, nb_lcores, port_id;
+    int ret;
 
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
@@ -47,48 +45,20 @@ main(int argc, char *argv[])
     argc -= ret;
     argv += ret;
 
-    ret = parse_args(argc, argv);
-    if (ret < 0)
-        rte_exit(EXIT_FAILURE, "Error with initialization\n");
-
-    nb_lcores_needed = (_btst(MQTT)) ? 3 : 2;
-
     // make sure we have at least 1 extra lcore for main loop processing for stats and keyboard
     nb_lcores = rte_lcore_count();
-    if (nb_lcores < nb_lcores_needed)
-        rte_exit(EXIT_FAILURE, "Too few lcores available. Number of lcore needed is %u.\n",
-                 nb_lcores_needed);
-
+    if (nb_lcores < 2)
+        rte_exit(EXIT_FAILURE, "Too few lcores available. Number of lcore needed is %u.\n", 2);
+    
     nb_ports = rte_eth_dev_count_avail();
     if (nb_ports == 0)
         rte_exit(EXIT_FAILURE, "No available Ethernet ports - bye\n");
     if (nb_ports > 1)
         printf("Number of ports: %u, using only first one\n", nb_ports);
 
-    main_lcore_id = rte_get_main_lcore();
-    if (_btst(MQTT))
-        pinfo->mqtt_lcore_id = ++main_lcore_id;
-    pinfo->worker_lcore_id = ++main_lcore_id;
-
-    // Assign each worker lcore a port and initialize its data structure.
-    lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
-
-    lcore->lport.lcore_id = pinfo->worker_lcore_id;
-    lcore->lport.pid      = 0;
-    lcore->lport.qid      = 0;
-
-    lcore->rx_mbufs = rte_zmalloc_socket("RX mbufs", MAX_BURST_COUNT * sizeof(struct rte_mbuf *), 0,
-                                         rte_socket_id());
-    if (lcore->rx_mbufs == NULL)
-        rte_exit(EXIT_FAILURE, "Cannot allocate memory for RX mbufs\n");
-
-    lcore->tx_mbufs = rte_zmalloc_socket("TX mbufs", MAX_BURST_COUNT * sizeof(struct rte_mbuf *), 0,
-                                         rte_socket_id());
-    if (lcore->tx_mbufs == NULL)
-        rte_exit(EXIT_FAILURE, "Cannot allocate memory for TX mbufs\n");
-
-    if (port_init(&lcore->lport) < 0)
-        rte_exit(EXIT_FAILURE, "Cannot init lport %u:%u\n", lcore->lport.pid, lcore->lport.qid);
+    ret = parse_args(argc, argv);
+    if (ret < 0)
+        rte_exit(EXIT_FAILURE, "Error with initialization\n");
 
     for (int n = 0; n < 64; n++)
         printf("\n");
@@ -97,16 +67,9 @@ main(int argc, char *argv[])
 
     start_running();
 
-    if (_btst(MQTT)) {
-        /* Launch MQTT thread on lcore */
-        if (rte_eal_remote_launch(mqtt_thread_routine, &pinfo->lcores[pinfo->mqtt_lcore_id],
-                                  pinfo->mqtt_lcore_id) < 0)
-            rte_exit(EXIT_FAILURE, "Cannot launch lcore %u\n", pinfo->mqtt_lcore_id);
-    }
-    /* Launch worker thread on lcore */
-    if (rte_eal_remote_launch(rxtx_routine,
-                              &pinfo->lcores[pinfo->worker_lcore_id], pinfo->worker_lcore_id) < 0)
-        rte_exit(EXIT_FAILURE, "Cannot launch lcore %u\n", pinfo->worker_lcore_id);
+    /* Launch worker thread on worker lcores only */
+    if (rte_eal_mp_remote_launch(rxtx_routine, NULL, SKIP_MAIN) < 0)
+        rte_exit(EXIT_FAILURE, "Cannot launch lcores\n");
 
     keyboard_loop();
 
@@ -119,10 +82,6 @@ main(int argc, char *argv[])
 
         rte_eth_dev_close(port_id);
     }
-    log_flush();
-
-    rte_free(lcore->rx_mbufs);
-    rte_free(lcore->tx_mbufs);
 
     /* clean up the EAL */
     rte_eal_cleanup();

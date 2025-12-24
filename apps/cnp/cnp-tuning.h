@@ -7,8 +7,7 @@
  * performance sending a fixed set of packets at a given cycle time.
  */
 
-#ifndef _CNP_TUNING_H_
-#define _CNP_TUNING_H_
+#pragma once
 
 #include <getopt.h>
 #include <inttypes.h>
@@ -35,13 +34,14 @@
 
 #include "consts.h"
 #include "stats.h"
-#include "mqtt.h"
 
 typedef struct lport {
     struct rte_ether_addr src_mac;          // Source MAC address
     struct rte_ether_addr dst_mac;          // Destination MAC address
     struct rte_mempool *rx_mp;              // Memory pool for Rx mbufs
     struct rte_mempool *tx_mp;              // Memory pool for Tx mbufs
+    uint32_t tx_sequence;                   // Sequence ID for Tx
+    uint32_t rx_sequence;                   // Sequence ID for Rx
     uint16_t lcore_id;                      // Lcore ID
     uint16_t pid, qid;                      // Port ID and Queue ID, assume 0,0 for now
     struct rte_eth_link link;               // Link status
@@ -50,52 +50,33 @@ typedef struct lport {
 } lport_t;
 
 typedef struct lcore {
-    lport_t lport;                     // Port associated with the lcore
-    stats_t stats;                     // Statistics for the lcore
-    struct rte_mbuf **rx_mbufs;        // Array of mbufs for packet receive
-    struct rte_mbuf **tx_mbufs;        // Array of mbufs for packet transmit
+    lport_t lport;        // Port associated with the lcore
+    stats_t stats;        // Statistics for the lcore
 } lcore_t;
 
 typedef struct {
     rte_atomic32_t flags;                 // Flags for internal use
-    uint32_t reserved;                    // reserved for future use
-    lcore_t lcores[RTE_MAX_LCORE];        // Array of lcore structures
-    uint64_t launch_interval_ns;          // Launch interval in nanoseconds
-    uint16_t mqtt_lcore_id;               // MQTT lcore ID
-    uint16_t worker_lcore_id;             // Worker lcore IDF
-    uint16_t delay_sec;                   // Start delay in seconds
-    uint16_t burst_count;                 // Burst count for packet transmission
     uint16_t pkt_length;                  // Length of packet minus the FCS
     uint16_t pad0;                        // Padding for alignment
-    uint32_t link_speed;                  // Link speed in Mbps
-    uint32_t run_duration_sec;            // Run duration in seconds
-    char *burst_length_str;               // Burst/Length string 'Burst/Length'
-    char *run_duration_str;               // Run duration string
-    char *dest_mac_str;                   // Destination MAC address in string format
-    uint64_t run_duration_end_ns;         // Run duration end time in nanoseconds
-    uint64_t rx_timestamp_flag;           // mbuf Rx timestamp flag
-    uint64_t tx_timestamp_flag;           // mbuf Tx timestamp flag
-    int rx_timestamp_offset;              // Rx Timestamp offset
-    int tx_timestamp_offset;              // Tx Timestamp offset
-    struct timespec start_time;           // Start time of the application
+    char *client_addr_str;                // Client address string <IP:port>
+    char *dst_mac_str;                    // Destination MAC address in string format
+    uint64_t tx_interval_ns;              // Tansmit interval in nanoseconds
+    lcore_t lcores[RTE_MAX_LCORE];        // Array of lcore structures
     struct termios oldterm;               // Old terminal setup information
 } info_t;
 
 extern info_t *pinfo;
-#define TX_BURST_TIME_NS	60000    // Number ns (60us) to reduce from cycle time to account for TX processing time
+#define TX_BURST_TIME_NS \
+    60000        // Number ns (60us) to reduce from cycle time to account for TX processing time
 
-typedef int (*timestamping_fn)(lcore_t *lcore, uint16_t pid, uint16_t qid);
+typedef int (*timestamping_fn)(lcore_t *lcore);
 
-enum {                             // Bit values for info_t.flags field
-    APP_RUNNING_FLAG = 0,          // Main Running flag
-    TTY_IS_INITED_FLAG,            // TTY has been inited flag
-    LOG_FLAG,                      // Logging is enabled flag
-    MQTT_FLAG,                     // MQTT Logging is enabled flag
-    LAUNCH_TIME_FLAG,              // Launch time support enabled flag
-    PROMISCUOUS_FLAG,              // Port promiscuous enabled flag
-    HW_TIMESTAMP_FLAG,             // Hardware timestamping is enabled flag
-    CLEAR_SCREEN_FLAG,             // Clear the screen flag
-    RESET_STATS_FLAG,              // Clear the statistics flag
+enum {                           // Bit values for info_t.flags field
+    APP_RUNNING_FLAG = 0,        // Main Running flag
+    TTY_IS_INITED_FLAG,          // TTY has been inited flag
+    PROMISCUOUS_FLAG,            // Port promiscuous enabled flag
+    CLEAR_SCREEN_FLAG,           // Clear the screen flag
+    RESET_STATS_FLAG,            // Clear the statistics flag
 };
 
 #define _bset(name)                                                                     \
@@ -167,8 +148,7 @@ stop_running(void)
 static inline bool
 is_running(void)
 {
-    if (!_btst(APP_RUNNING) ||
-        (pinfo->run_duration_end_ns && clock_get_ns() >= pinfo->run_duration_end_ns))
+    if (!_btst(APP_RUNNING))
         return false;
     else
         return true;
@@ -268,19 +248,19 @@ is_link_up(uint16_t pid)
 }
 
 static inline void
-send_packets(uint16_t pid, uint16_t qid, struct rte_mbuf **mbufs, uint16_t num_mbufs)
+send_packets(uint16_t pid, uint16_t qid, struct rte_mbuf **mbuf)
 {
     lcore_t *lcore = (lcore_t *)&pinfo->lcores[rte_lcore_id()];
-    uint16_t nb_tx;
+    uint16_t nb_tx, num_mbufs;
 
-	(void)lcore;
+    (void)lcore;
 
+    num_mbufs = 1;
     do {
-        nb_tx = rte_eth_tx_burst(pid, qid, mbufs, num_mbufs);
+        nb_tx = rte_eth_tx_burst(pid, qid, mbuf, num_mbufs);
         num_mbufs -= nb_tx;
         if (num_mbufs == 0)
             break;
-        mbufs += nb_tx;
     } while (is_running());
 }
 
@@ -348,5 +328,3 @@ void print_app_usage(const char *prgname);
 int port_init(lport_t *lport);
 void keyboard_loop(void);
 int rxtx_routine(void *arg);
-
-#endif

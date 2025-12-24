@@ -7,8 +7,6 @@
 sources = files(
   'keyboard.c',
   'cnp-tuning.c',
-  'log.c',
-  'mqtt.c',
   'parse-args.c',
   'port-setup.c',
   'rxtx.c',

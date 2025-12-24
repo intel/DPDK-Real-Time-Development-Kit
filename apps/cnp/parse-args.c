@@ -8,8 +8,6 @@
  */
 
 #include "cnp-tuning.h"
-#include "log.h"
-#include "mqtt.h"
 
 void
 print_app_usage(const char *prgname)
@@ -18,23 +16,15 @@ print_app_usage(const char *prgname)
     printf("\n");
     printf("%s: Application Options:\n", prgname);
     printf("  Required:\n");
-    printf("    -r | --reference         Enable Reference mode (Default Enabled)\n");
-    printf("    -m | --mirror            Enable Mirror mode (Default Disabled)\n");
-    printf("    -c | --launch-interval N Number of nanoseconds per launch time interval (e.g., 31250ns = 31.250us)\n");
-    printf("    -b | --burst-length N    Burst-Count/Pkt-Length (e.g., 1/64 or 4/128, max burst: %'d)\n", MAX_BURST_COUNT);
+    printf("    -t | --tx-interval N     Number of nanoseconds per TX interval (e.g., 31250ns = 31.250us)\n");
+    printf("    -c | --client IP:port    Enable Client mode <IP:port>\n");
+    printf("    -l | --pkt-length N      Length of packet (Min: %d, Max: %d) Default: 64\n", MIN_PKT_LENGTH, MAX_PKT_LENGTH);
     printf("\n");
     printf("  Optional:\n");
-    printf("    -d | --dest-mac MAC      Destination MAC address (default: FF:FF:FF:FF:FF:FF)\n");
-    printf("    -l | --log-file FILE     Log packet timestamps to FILE\n");
-    printf("    -M | --mqtt              Enable MQTT logging (Default Disabled)\n");
-    printf("    -s | --link-speed N      Desired NIC Link Speed in Mbps (Default Auto-Neg)\n");
-    printf("    -R | --run-duration N    Amount of time to run 'Hours:Minutes:Seconds' (default forever) (Reference)\n");
+    printf("    -D | --dst-mac MAC       Destination MAC address (default: FF:FF:FF:FF:FF:FF)\n");
+    printf("    -S | --src-mac MAC       Source MAC address (default: NIC MAC address)\n");
     printf("    -P | --promiscuous       Enable promiscuous mode (Default Disabled)\n");
-    printf("    -i | --internal-debug    Internal debugging statistics\n");
-    printf("    -H | --hw-timestamp      Enable hardware timestamping\n");
     printf("    -h | --help              Print this help text\n");
-    printf("    -D | --delay-time N      Number of seconds to delay (Default: %'d) (Reference)\n", DEFAULT_DELAY_SEC);
-    printf("    -T | --tx-burst-offset N TX burst offset in ns before cycle end (Default: auto-calculated)\n");
     printf("\n");
     // clang-format on
 }
@@ -51,40 +41,6 @@ count_chr(const char *str, char c)
     return count;
 }
 
-static void
-process_duration(char *str)
-{
-    uint32_t hours = 0, minutes = 0, seconds = 0;
-    char dur_str[64];
-
-    switch (count_chr(str, ':')) {
-    case 0:        // no colons if must be seconds
-        sscanf(str, "%d", &seconds);
-        break;
-    case 1:                       // one colon if must be minutes and seconds
-        if (str[0] == ':')        // no minutes, just seconds
-            sscanf(str, ":%d", &seconds);
-        else
-            sscanf(str, "%d:%d", &minutes, &seconds);
-        break;
-    case 2:        // two colons if must be hours, minutes, and seconds
-        if (str[0] == ':' && str[1] == ':')        // no hours or minutes, just seconds
-            sscanf(str, "::%d", &seconds);
-        else if (str[0] == ':')        // no hours, just minutes and seconds
-            sscanf(str, ":%d:%d", &minutes, &seconds);
-        else
-            sscanf(str, "%d:%d:%d", &hours, &minutes, &seconds);
-        break;
-    default:
-        rte_exit(EXIT_FAILURE,
-                 "Error: Invalid run duration format, expected format: Hours:Minutes:Seconds\n");
-    }
-    pinfo->run_duration_sec += hours * 60 * 60 + minutes * 60 + seconds;
-    snprintf(dur_str, sizeof(dur_str), "%03d:%02d:%02d", hours, minutes, seconds);
-    free(pinfo->run_duration_str);
-    pinfo->run_duration_str = strdup(dur_str);
-}
-
 /* Parse the commandline arguments. */
 int
 parse_args(int argc, char **argv)
@@ -96,50 +52,38 @@ parse_args(int argc, char **argv)
     // clang-format off
     static struct option lgopts[] = {
 		// Required options
-		{"launch-interval", required_argument, 0, 'c'},
-		{"burst-length", required_argument, 0, 'b'},
+		{"client", required_argument, 0, 'c'},
+		{"tx-interval", required_argument, 0, 't'},
+		{"pkt-length", required_argument, 0, 'l'},
 		// Optional options
-		{"dest-mac", required_argument, 0, 'd'},
-		{"log-file", required_argument, 0, 'l'},
-		{"mqtt", no_argument, 0, 'M'},
-		{"link-speed", required_argument, 0, 's'},
-		{"run-duration", required_argument, 0, 'R'},
+		{"dst-mac", required_argument, 0, 'd'},
 		{"promiscuous", no_argument, 0, 'P'},
-		{"hw-timestamp", no_argument, 0, 'H'},
 		{"help", no_argument, 0, 'h'},
-		{"delay-time", required_argument, 0, 'D'},
 		{NULL, 0, 0, 0}
     };
     // clang-format on
-    const char *short_options = "c:b:d:l:Ms:R:D:PHh";
+    const char *short_options = "c:t:l:d:Ph";
     argvopt                   = argv;
 
-    pinfo->delay_sec           = DEFAULT_DELAY_SEC;
-    pinfo->link_speed          = RTE_ETH_SPEED_NUM_UNKNOWN;
-    pinfo->run_duration_str    = strdup("000:00:00");
-    pinfo->dest_mac_str        = strdup("FF:FF:FF:FF:FF:FF");
-    pinfo->rx_timestamp_offset = -1;
-    pinfo->tx_timestamp_offset = -1;
+    pinfo->dst_mac_str         = strdup("FF:FF:FF:FF:FF:FF");
 
     // Parse the command line options.
     while ((opt = getopt_long(argc, argvopt, short_options, lgopts, &option_index)) != EOF) {
 
         switch (opt) {
-        case 'c':        // launch-interval
-            pinfo->launch_interval_ns = strtoul(optarg, NULL, 0);
-            printf(">> Launch Interval Set To: %" PRIu64 " ns\n", pinfo->launch_interval_ns);
+        case 'c':        // client
+            if (count_chr(optarg, ':') != 1)
+                rte_exit(EXIT_FAILURE, "Invalid client IP:port format\n");
+            free(pinfo->client_addr_str);
+            pinfo->client_addr_str = strdup(optarg);
+            printf(">> Client Mode Enabled, Remote Address Set To: %s\n", pinfo->client_addr_str);
             break;
-        case 'b':        // burst-length
-            switch (count_chr(optarg, '/')) {
-            case 1:
-                sscanf(optarg, "%hd/%hd", &pinfo->burst_count, &pinfo->pkt_length);
-                break;
-            default:
-                rte_exit(EXIT_FAILURE, "Error: Invalid format, expected format: Burst/Length\n");
-            }
-            if (pinfo->burst_count > MAX_BURST_COUNT)
-                rte_exit(EXIT_FAILURE, "Error: burst size must be less than or equal to %d\n",
-                         MAX_BURST_COUNT);
+        case 't':        // tx-interval
+            pinfo->tx_interval_ns = strtoul(optarg, NULL, 0);
+            printf(">> TX Interval Set To: %" PRIu64 " ns\n", pinfo->tx_interval_ns);
+            break;
+        case 'l':        // pkt-length
+            pinfo->pkt_length = atoi(optarg);
 
             if (pinfo->pkt_length > MAX_PKT_LENGTH)
                 pinfo->pkt_length = MAX_PKT_LENGTH;
@@ -147,49 +91,16 @@ parse_args(int argc, char **argv)
                 pinfo->pkt_length = MIN_PKT_LENGTH;
 
             pinfo->pkt_length -= FCS_SIZE;        // remove the FCS bytes
-            pinfo->burst_length_str = strdup(optarg);
-            printf(">> Burst Length Set To: %s\n", pinfo->burst_length_str);
+            printf(">> Packet Length Set To: %d\n", pinfo->pkt_length);
             break;
-        case 'd':        // dest-mac
-            free(pinfo->dest_mac_str);
-            pinfo->dest_mac_str = strdup(optarg);
-            printf(">> Destination MAC Set To: %s\n", pinfo->dest_mac_str);
-            break;
-        case 'D':        // Delay start TX in seconds
-            pinfo->delay_sec = atoi(optarg);
-            printf(">> Delay Start TX Set To: %d seconds\n", pinfo->delay_sec);
-            break;
-        case 'l':        // log-file
-            if (!_btst(LOG) && log_init(optarg))
-                rte_exit(EXIT_FAILURE, "Error: Failed to open log file\n");
-            _bset(LOG);
-            printf(">> Log File Enabled\n");
-            break;
-        case 'M':        // MQTT enabled
-            if (!_btst(MQTT) && mqtt_init())
-                rte_exit(EXIT_FAILURE, "Error: Failed to initialize MQTT\n");
-            _bset(MQTT);
-            printf(">> MQTT Logging Enabled\n");
-            break;
-        case 's':        // link speed Mbps
-            pinfo->link_speed = strtoul(optarg, NULL, 0);
-            printf(">> Link Speed Set To: %u Mbps\n", pinfo->link_speed);
-            break;
-        case 'R':        // Run duration in seconds
-            process_duration(optarg);
-            printf(">> Run Duration Set To: %s\n", optarg);
+        case 'd':        // dst-mac
+            free(pinfo->dst_mac_str);
+            pinfo->dst_mac_str = strdup(optarg);
+            printf(">> Destination MAC Set To: %s\n", pinfo->dst_mac_str);
             break;
         case 'P':        // promiscuous mode
             _bset(PROMISCUOUS);
             printf(">> Promiscuous Mode Enabled\n");
-            break;
-        case 'L':        // launch time mode
-            _bset(LAUNCH_TIME);
-            printf(">> Launch Time Enabled\n");
-            break;
-        case 'H':        // hardware timestamp mode
-            _bset(HW_TIMESTAMP);
-            printf(">> HW Timestamping Enabled\n");
             break;
         case 'h':
             print_app_usage(prgname);
@@ -203,9 +114,9 @@ parse_args(int argc, char **argv)
         }
     }
 
-    if (pinfo->launch_interval_ns == 0 || pinfo->burst_count == 0 || pinfo->pkt_length == 0)
+    if (pinfo->tx_interval_ns == 0 || pinfo->pkt_length == 0)
         rte_exit(EXIT_FAILURE,
-                 "Error: Invalid arguments, must contain cycle time and Burst/Length\n");
+                 "Error: Invalid arguments, must contain TX interval time and Packet Length\n");
 
     argv[optind - 1] = prgname;
 

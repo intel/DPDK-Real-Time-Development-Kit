@@ -9,8 +9,6 @@
 
 #include <unistd.h>
 #include "cnp-tuning.h"
-#include "log.h"
-#include "mqtt.h"
 
 static int
 poll_keyboard(uint8_t *c)
@@ -67,18 +65,12 @@ keyboard_loop(void)
 
     _bset(CLEAR_SCREEN);
 
-    clock_gettime(CLOCK_TAI, &pinfo->start_time);
-
     stdin_setup();
-
-    if (pinfo->run_duration_sec > 0)
-        pinfo->run_duration_end_ns = clock_get_ns() + (pinfo->run_duration_sec * NSEC_PER_SEC);
 
     _bset(RESET_STATS);
     while (is_running()) {
         if ((count++ % 4) == 0)
             print_stats();
-        log_flush();
 
         if (poll_keyboard(&c)) {
             switch (c) {
@@ -87,7 +79,6 @@ keyboard_loop(void)
                 break;
             case 'r':
                 _bset(RESET_STATS);
-                log_open();
                 /* FALL-THRU */
             case 'c':
                 _bset(CLEAR_SCREEN);
@@ -104,7 +95,5 @@ keyboard_loop(void)
     printf("Quitting ...\n");
     stop_running();
     sleep_usec(250);
-    log_close();
-    mqtt_close();
     stdin_restore();
 }

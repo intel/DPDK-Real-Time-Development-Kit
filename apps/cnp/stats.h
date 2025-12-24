@@ -7,8 +7,7 @@
  * performance sending a fixed set of packets at a given cycle time.
  */
 
-#ifndef _STATS_H_
-#define _STATS_H_
+ #pragma once
 
 #include <stdint.h>
 
@@ -27,7 +26,6 @@ typedef struct {
 
 // Values in nanoseconds unless otherwise specified
 typedef struct stats_s {
-    min_avg_max_t launch_time;         // Hardware launch time statistics
     pkt_count_t total_pkts;            // Total Rx/Tx reference packets
     uint64_t rx_pps;                   // Number of packets per second
     uint64_t tx_pps;                   // Number of packets per second
@@ -36,5 +34,3 @@ typedef struct stats_s {
 
 void print_stats(void);
 void reset_stats(void);
-
-#endif /* _STATS_H_ */
