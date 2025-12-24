@@ -97,7 +97,7 @@ rxtx_routine(void *arg __rte_unused)
             tx_begin_ns += pinfo->tx_interval_ns;
 
             if (tx_func(lcore))
-                rte_exit(EXIT_FAILURE, "failed to send packets on port %u", lport->pid);
+                rte_exit(EXIT_FAILURE, "failed to send packet on port %u", lport->pid);
         }
 
         if (rx_func(lcore))
