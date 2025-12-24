@@ -36,7 +36,7 @@ tx_timestamping(lcore_t *lcore)
 
     memset(payload, 0, sizeof(probe_payload_t));
     payload->magic           = rte_cpu_to_be_16(THE_MAGIC);
-    payload->sequence_number = lcore->lport.tx_sequence++;
+    payload->sequence_number = rte_cpu_to_be_16(lcore->lport.tx_sequence++);
     payload->packet_type     = TYPE_PROBE_SEND;
     payload->T1              = clock_get_ns();        // Example timestamp
 
@@ -55,8 +55,29 @@ rx_timestamping(lcore_t *lcore)
     uint16_t qid = lcore->lport.qid;
 
     if (rte_eth_rx_burst(pid, qid, &mbuf, 1) > 0) {
+        struct rte_ether_hdr *eth_hdr;
+        probe_payload_t *payload;
         lcore->stats.total_pkts.rx++;
 
+        if (rte_pktmbuf_pkt_len(mbuf) < sizeof(struct rte_ether_hdr) + sizeof(probe_payload_t)) {
+            lcore->stats.rx_frame_errors++;
+            rte_pktmbuf_free(mbuf);
+            return 0;
+        }
+
+        eth_hdr = rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
+        if (eth_hdr->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_1588)) {
+            lcore->stats.rx_unknown_frames++;
+            rte_pktmbuf_free(mbuf);
+            return 0;
+        }
+        payload = (probe_payload_t *)(rte_pktmbuf_mtod_offset(mbuf, char *,
+                                                              sizeof(struct rte_ether_hdr)));
+        if (rte_be_to_cpu_16(payload->magic) != THE_MAGIC) {
+            lcore->stats.rx_no_probe_frames++;
+            rte_pktmbuf_free(mbuf);
+            return 0;
+        }
         // Swap MAC addresses
         rte_ether_addr_copy(&rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *)->dst_addr, &tmp);
         rte_ether_addr_copy(&rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *)->src_addr,
@@ -73,9 +94,9 @@ rx_timestamping(lcore_t *lcore)
 int
 rxtx_routine(void *arg __rte_unused)
 {
-    lcore_t *lcore       = &pinfo->lcores[rte_lcore_id()];
-    lport_t *lport       = &lcore->lport;
-    uint64_t tx_begin_ns = 0;
+    lcore_t *lcore          = &pinfo->lcores[rte_lcore_id()];
+    lport_t *lport          = &lcore->lport;
+    uint64_t tx_begin_ns    = 0;
     timestamping_fn rx_func = rx_timestamping, tx_func = tx_timestamping;
 
     while (is_link_up(lport->pid) == false) {
