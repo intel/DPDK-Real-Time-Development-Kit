@@ -152,6 +152,7 @@ print_stats(void)
 
     print_link();
     print_errors();
+	print_number("No Mbufs", lport->other_stats.no_mbufs);
     print_total_packets();
     print_rxtx_pps();
 

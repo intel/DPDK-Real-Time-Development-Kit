@@ -21,8 +21,8 @@ print_app_usage(const char *prgname)
     printf("    -l | --pkt-length N      Length of packet (Min: %d, Max: %d) Default: 64\n", MIN_PKT_LENGTH, MAX_PKT_LENGTH);
     printf("\n");
     printf("  Optional:\n");
-    printf("    -D | --dst-mac MAC       Destination MAC address (default: FF:FF:FF:FF:FF:FF)\n");
-    printf("    -S | --src-mac MAC       Source MAC address (default: NIC MAC address)\n");
+    printf("    -d | --dst-mac MAC       Destination MAC address (default: FF:FF:FF:FF:FF:FF)\n");
+    printf("    -D | --debug             Enable debug mode (Default Disabled)\n");
     printf("    -P | --promiscuous       Enable promiscuous mode (Default Disabled)\n");
     printf("    -h | --help              Print this help text\n");
     printf("\n");
@@ -58,11 +58,12 @@ parse_args(int argc, char **argv)
 		// Optional options
 		{"dst-mac", required_argument, 0, 'd'},
 		{"promiscuous", no_argument, 0, 'P'},
+		{"debug", no_argument, 0, 'D'},
 		{"help", no_argument, 0, 'h'},
 		{NULL, 0, 0, 0}
     };
     // clang-format on
-    const char *short_options = "c:t:l:d:Ph";
+    const char *short_options = "c:t:l:d:PhD";
     argvopt                   = argv;
 
     pinfo->dst_mac_str         = strdup("FF:FF:FF:FF:FF:FF");
@@ -99,6 +100,10 @@ parse_args(int argc, char **argv)
             pinfo->dst_mac_str = strdup(optarg);
             printf(">> Destination MAC Set To: %s\n", pinfo->dst_mac_str);
             break;
+		case 'D': // Debug mode
+			_bset(DEBUG_MODE);
+			printf(">> Debug Mode Enabled\n");
+			break;
         case 'P':        // promiscuous mode
             _bset(PROMISCUOUS);
             printf(">> Promiscuous Mode Enabled\n");

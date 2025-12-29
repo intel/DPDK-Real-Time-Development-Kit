@@ -69,12 +69,20 @@ main(int argc, char *argv[])
     if (rte_eal_mp_remote_launch(rxtx_routine, NULL, SKIP_MAIN) < 0)
         rte_exit(EXIT_FAILURE, "Cannot launch lcores\n");
 
+    printf("Main lcore is %u\n", rte_lcore_id());
+
     sleep_sec(1);        // Give some time for worker lcores to start
 
     for (int n = 0; n < 64; n++)
         printf("\n");
     keyboard_loop();
 
+    print_stats();
+    if (_btst(DEBUG_MODE)) {
+        printf("Final Mempool States:\n");
+        rte_mempool_dump(stdout, pinfo->lports[0].tx_mp);
+        rte_mempool_dump(stdout, pinfo->lports[0].rx_mp);
+    }
     RTE_ETH_FOREACH_DEV(port_id)
     {
         int ret;

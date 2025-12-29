@@ -100,7 +100,7 @@ rx_timestamping(lport_t *lport)
                                 &rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->dst_addr);
             rte_ether_addr_copy(&tmp, &rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->src_addr);
 
-			if (rte_eth_tx_burst(lport->pid, lport->qid, &pkt, 1) == 0) {
+			if (rte_eth_tx_burst(lport->pid, lport->qid, &pkt, 1) <= 0) {
 				rte_pktmbuf_free(pkt);
 				lport->other_stats.tx_frame_errors++;
 				printf("Failed to send mirror packet on port %u\n", lport->pid);
@@ -119,15 +119,16 @@ rxtx_routine(void *arg __rte_unused)
     uint64_t tx_begin_ns    = 0;
     timestamping_fn rx_func = rx_timestamping, tx_func = tx_timestamping;
 
+	printf("Starting RX/TX on port %u on lcore %u\n", pid, rte_lcore_id());
     lport->pid = pid;
     lport->qid = 0;
     if (port_init(lport) < 0)
-        rte_exit(EXIT_FAILURE, "Cannot init lport %u:%u\n", lport->pid, lport->qid);
+        rte_exit(EXIT_FAILURE, "Cannot init lport %u:%u\n", pid, lport->qid);
 
-    while (is_link_up(lport->pid) == false) {
+    while (is_link_up(pid) == false) {
         usleep(250000);
         if (!is_running())
-            return 0;
+            goto leave;
     }
 
     tx_begin_ns = clock_get_ns() + pinfo->tx_interval_ns;
@@ -145,6 +146,8 @@ rxtx_routine(void *arg __rte_unused)
         if (rx_func(lport) < 0)
             stop_running();
     }
+leave:
+	sleep(1);  // Give some time for RX packets to be processed
 
     return 0;
 }

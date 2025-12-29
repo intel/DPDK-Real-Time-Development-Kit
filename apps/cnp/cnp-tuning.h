@@ -36,17 +36,17 @@
 #include "stats.h"
 
 typedef struct lport {
-    struct rte_ether_addr src_mac;                  // Source MAC address
-    struct rte_ether_addr dst_mac;                  // Destination MAC address
-    struct rte_mempool *rx_mp;                      // Memory pool for Rx mbufs
-    struct rte_mempool *tx_mp;                      // Memory pool for Tx mbufs
-    uint32_t tx_sequence;                           // Sequence ID for Tx
-    uint32_t rx_sequence;                           // Sequence ID for Rx
-    uint16_t pid, qid;                              // Port ID and Queue ID, assume 0,0 for now
-    struct rte_eth_link link;                       // Link status
-    struct rte_eth_stats stats;                     // Port Statistics
-    struct rte_eth_stats stats_prev;                // Previous port statistics
-    stats_t other_stats;                            // Other statistics
+    struct rte_ether_addr src_mac;          // Source MAC address
+    struct rte_ether_addr dst_mac;          // Destination MAC address
+    struct rte_mempool *rx_mp;              // Memory pool for Rx mbufs
+    struct rte_mempool *tx_mp;              // Memory pool for Tx mbufs
+    uint32_t tx_sequence;                   // Sequence ID for Tx
+    uint32_t rx_sequence;                   // Sequence ID for Rx
+    uint16_t pid, qid;                      // Port ID and Queue ID, assume 0,0 for now
+    struct rte_eth_link link;               // Link status
+    struct rte_eth_stats stats;             // Port Statistics
+    struct rte_eth_stats stats_prev;        // Previous port statistics
+    stats_t other_stats;                    // Other statistics
 } lport_t;
 
 typedef struct {
@@ -72,6 +72,7 @@ enum {                           // Bit values for info_t.flags field
     APP_RUNNING_FLAG = 0,        // Main Running flag
     TTY_IS_INITED_FLAG,          // TTY has been inited flag
     PROMISCUOUS_FLAG,            // Port promiscuous enabled flag
+    DEBUG_MODE_FLAG,             // Debug mode enabled flag
     CLEAR_SCREEN_FLAG,           // Clear the screen flag
     RESET_STATS_FLAG,            // Clear the statistics flag
 };
