@@ -50,7 +50,6 @@ print_3_numbers(const char *name, uint64_t num1, uint64_t num2, uint64_t num3)
 static inline void
 print_link(void)
 {
-    lcore_t *lcore = &pinfo->lcores[0];
 	lport_t *lport = &pinfo->lports[0];
     char buff[256];
 
@@ -137,8 +136,6 @@ print_stats(void)
     printf("%c: %s, TX Interval: %'lu ns, ", twirl[toggle++ % 4], "TX Interval",
            pinfo->tx_interval_ns);
     printf("Packet Length: %'u\n", pinfo->pkt_length + FCS_SIZE);
-
-    lcore_t *lcore = &pinfo->lcores[0];
 
     printf("   Modes: ");
     printf("%sPromiscuous%s ", _btst(PROMISCUOUS) ? "\033[32m" : "\033[31m", "\033[0m");
