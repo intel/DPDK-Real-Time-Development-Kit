@@ -63,7 +63,6 @@ rx_timestamping(lport_t *lport)
         struct rte_ether_hdr *eth_hdr;
         probe_payload_t *payload;
 
-		printf("Received %u packets\n", nb_rx);
         for (uint16_t i = 0; i < nb_rx; i++) {
             struct rte_mbuf *pkt = mbuf[i];
 
