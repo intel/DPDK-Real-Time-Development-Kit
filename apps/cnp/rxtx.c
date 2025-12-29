@@ -91,7 +91,6 @@ rx_timestamping(lport_t *lport)
 int
 rxtx_routine(void *arg __rte_unused)
 {
-    uint16_t lid            = rte_lcore_id();
     uint16_t pid            = pinfo->lport_idx++;
     lport_t *lport          = &pinfo->lports[pid];
     uint64_t tx_begin_ns    = 0;
