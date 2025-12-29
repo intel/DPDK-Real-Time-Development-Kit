@@ -46,13 +46,8 @@ typedef struct lport {
     struct rte_eth_link link;               // Link status
     struct rte_eth_stats stats;             // Port Statistics
     struct rte_eth_stats stats_prev;        // Previous port statistics
+    stats_t other_stats;                    // Other statistics
 } lport_t;
-
-typedef struct lcore {
-    uint16_t lcore_id;        // Lcore ID
-    uint16_t valid;           // lport is valid
-    stats_t stats;            // Statistics for the lcore
-} lcore_t;
 
 typedef struct {
     rte_atomic32_t flags;                    // Flags for internal use
@@ -61,7 +56,7 @@ typedef struct {
     char *client_addr_str;                   // Client address string <IP:port>
     char *dst_mac_str;                       // Destination MAC address in string format
     uint64_t tx_interval_ns;                 // Transmit interval in nanoseconds
-    lcore_t lcores[RTE_MAX_LCORE];           // Array of lcore structures
+    uint8_t lcores[RTE_MAX_LCORE];           // Array of lcore structures
     lport_t lports[RTE_MAX_ETHPORTS];        // Array of lport structures
     struct termios oldterm;                  // Old terminal setup information
 } info_t;
@@ -251,10 +246,7 @@ is_link_up(uint16_t pid)
 static inline void
 send_packets(uint16_t pid, uint16_t qid, struct rte_mbuf **mbuf)
 {
-    lcore_t *lcore = (lcore_t *)&pinfo->lcores[rte_lcore_id()];
     uint16_t nb_tx, num_mbufs;
-
-    (void)lcore;
 
     num_mbufs = 1;
     do {

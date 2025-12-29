@@ -70,12 +70,11 @@ print_min_avg_max(min_avg_max_t *rtt, const char *name)
 static inline void
 print_rxtx_pps(void)
 {
-    lcore_t *lcore = &pinfo->lcores[0];
 	lport_t *lport = &pinfo->lports[0];
 
-    lcore->stats.rx_pps = lport->stats.ipackets - lport->stats_prev.ipackets;
-    lcore->stats.tx_pps = lport->stats.opackets - lport->stats_prev.opackets;
-    print_2_numbers("Rx/Tx PPS", lcore->stats.rx_pps, lcore->stats.tx_pps);
+    lport->other_stats.rx_pps = lport->stats.ipackets - lport->stats_prev.ipackets;
+    lport->other_stats.tx_pps = lport->stats.opackets - lport->stats_prev.opackets;
+    print_2_numbers("Rx/Tx PPS", lport->other_stats.rx_pps, lport->other_stats.tx_pps);
 }
 
 static inline void
@@ -103,9 +102,9 @@ print_mac(mac_type_t type)
 static inline void
 print_total_packets(void)
 {
-    lcore_t *lcore = &pinfo->lcores[0];
+    lport_t *lport = &pinfo->lports[0];
 
-    print_2_numbers("Total Rx/Tx Packets", lcore->stats.total_pkts.rx, lcore->stats.total_pkts.tx);
+    print_2_numbers("Total Rx/Tx Packets", lport->other_stats.total_pkts.rx, lport->other_stats.total_pkts.tx);
 }
 
 static inline void

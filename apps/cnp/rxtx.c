@@ -15,12 +15,11 @@
 static inline int
 tx_timestamping(lport_t *lport)
 {
-	lcore_t *lcore = (lcore_t *)&pinfo->lcores[rte_lcore_id()];
     struct rte_mbuf *m;
     struct rte_ether_hdr *eth;
 
     if ((m = rte_pktmbuf_alloc(lport->tx_mp)) == NULL) {
-        lcore->stats.no_mbufs++;
+        lport->other_stats.no_mbufs++;
         return -1;
     }
 
@@ -41,7 +40,7 @@ tx_timestamping(lport_t *lport)
     payload->T1              = clock_get_ns();        // Example timestamp
 
     send_packets(lport->pid, lport->qid, &m);
-    lcore->stats.total_pkts.tx++;
+    lport->other_stats.total_pkts.tx++;
 
     return 0;
 }
@@ -49,31 +48,30 @@ tx_timestamping(lport_t *lport)
 static inline int
 rx_timestamping(lport_t *lport)
 {
-	lcore_t *lcore = (lcore_t *)&pinfo->lcores[rte_lcore_id()];
     struct rte_mbuf *mbuf;
     struct rte_ether_addr tmp;
 
     if (rte_eth_rx_burst(lport->pid, lport->qid, &mbuf, 1) > 0) {
         struct rte_ether_hdr *eth_hdr;
         probe_payload_t *payload;
-        lcore->stats.total_pkts.rx++;
+        lport->other_stats.total_pkts.rx++;
 
         if (rte_pktmbuf_pkt_len(mbuf) < sizeof(struct rte_ether_hdr) + sizeof(probe_payload_t)) {
-            lcore->stats.rx_frame_errors++;
+            lport->other_stats.rx_frame_errors++;
             rte_pktmbuf_free(mbuf);
             return 0;
         }
 
         eth_hdr = rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
         if (eth_hdr->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_1588)) {
-            lcore->stats.rx_unknown_frames++;
+            lport->other_stats.rx_unknown_frames++;
             rte_pktmbuf_free(mbuf);
             return 0;
         }
         payload = (probe_payload_t *)(rte_pktmbuf_mtod_offset(mbuf, char *,
                                                               sizeof(struct rte_ether_hdr)));
         if (rte_be_to_cpu_16(payload->magic) != THE_MAGIC) {
-            lcore->stats.rx_no_probe_frames++;
+            lport->other_stats.rx_no_probe_frames++;
             rte_pktmbuf_free(mbuf);
             return 0;
         }
@@ -85,7 +83,7 @@ rx_timestamping(lport_t *lport)
 
         while (is_running() && rte_eth_tx_burst(lport->pid, lport->qid, &mbuf, 1) == 0)
             ;
-        lcore->stats.total_pkts.tx++;
+        lport->other_stats.total_pkts.tx++;
     }
     return 0;
 }
@@ -94,14 +92,11 @@ int
 rxtx_routine(void *arg __rte_unused)
 {
     uint16_t lid            = rte_lcore_id();
-    lcore_t *lcore          = &pinfo->lcores[lid];
     uint16_t pid            = pinfo->lport_idx++;
     lport_t *lport          = &pinfo->lports[pid];
     uint64_t tx_begin_ns    = 0;
     timestamping_fn rx_func = rx_timestamping, tx_func = tx_timestamping;
 
-    lcore->lcore_id = lid;
-    lcore->valid    = 1;
     lport->pid      = pid;
     lport->qid      = 0;
     if (port_init(lport) < 0)
