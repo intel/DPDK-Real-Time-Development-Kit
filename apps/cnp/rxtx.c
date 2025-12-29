@@ -41,7 +41,12 @@ tx_timestamping(lport_t *lport)
     payload->packet_type     = TYPE_PROBE_SEND;
     payload->T1              = clock_get_ns();        // Example timestamp
 
-    send_packets(lport->pid, lport->qid, &m);
+    if (rte_eth_tx_burst(lport->pid, lport->qid, &m, 1) == 0) {
+		rte_pktmbuf_free(m);
+		lport->other_stats.tx_frame_errors++;
+		printf("Failed to send packet on port %u\n", lport->pid);
+		return -1;
+	}
     lport->other_stats.total_pkts.tx++;
 
     return 0;
@@ -96,7 +101,11 @@ rx_timestamping(lport_t *lport)
                                 &rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->dst_addr);
             rte_ether_addr_copy(&tmp, &rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->src_addr);
 
-			rte_eth_tx_burst(lport->pid, lport->qid, &pkt, 1);
+			if (rte_eth_tx_burst(lport->pid, lport->qid, &pkt, 1) == 0) {
+				rte_pktmbuf_free(pkt);
+				lport->other_stats.tx_frame_errors++;
+				printf("Failed to send mirror packet on port %u\n", lport->pid);
+			}
         }
     }
 
