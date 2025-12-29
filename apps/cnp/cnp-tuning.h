@@ -36,23 +36,24 @@
 #include "stats.h"
 
 typedef struct lport {
-    struct rte_ether_addr src_mac;          // Source MAC address
-    struct rte_ether_addr dst_mac;          // Destination MAC address
-    struct rte_mempool *rx_mp;              // Memory pool for Rx mbufs
-    struct rte_mempool *tx_mp;              // Memory pool for Tx mbufs
-    uint32_t tx_sequence;                   // Sequence ID for Tx
-    uint32_t rx_sequence;                   // Sequence ID for Rx
-    uint16_t pid, qid;                      // Port ID and Queue ID, assume 0,0 for now
-    struct rte_eth_link link;               // Link status
-    struct rte_eth_stats stats;             // Port Statistics
-    struct rte_eth_stats stats_prev;        // Previous port statistics
-    stats_t other_stats;                    // Other statistics
+    struct rte_ether_addr src_mac;                  // Source MAC address
+    struct rte_ether_addr dst_mac;                  // Destination MAC address
+    struct rte_mempool *rx_mp;                      // Memory pool for Rx mbufs
+    struct rte_mempool *tx_mp;                      // Memory pool for Tx mbufs
+    uint32_t tx_sequence;                           // Sequence ID for Tx
+    uint32_t rx_sequence;                           // Sequence ID for Rx
+    uint16_t pid, qid;                              // Port ID and Queue ID, assume 0,0 for now
+    struct rte_eth_link link;                       // Link status
+    struct rte_eth_stats stats;                     // Port Statistics
+    struct rte_eth_stats stats_prev;                // Previous port statistics
+    stats_t other_stats;                            // Other statistics
 } lport_t;
 
 typedef struct {
     rte_atomic32_t flags;                    // Flags for internal use
     uint16_t pkt_length;                     // Length of packet minus the FCS
     uint16_t lport_idx;                      // Next lport index to use
+    uint16_t client_mode;                    // Client mode enabled flag
     char *client_addr_str;                   // Client address string <IP:port>
     char *dst_mac_str;                       // Destination MAC address in string format
     uint64_t tx_interval_ns;                 // Transmit interval in nanoseconds

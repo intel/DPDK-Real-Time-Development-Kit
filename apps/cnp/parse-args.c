@@ -77,6 +77,7 @@ parse_args(int argc, char **argv)
             free(pinfo->client_addr_str);
             pinfo->client_addr_str = strdup(optarg);
             printf(">> Client Mode Enabled, Remote Address Set To: %s\n", pinfo->client_addr_str);
+			pinfo->client_mode = true;
             break;
         case 't':        // tx-interval
             pinfo->tx_interval_ns = strtoul(optarg, NULL, 0);
