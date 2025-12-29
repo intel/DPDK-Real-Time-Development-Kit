@@ -104,7 +104,7 @@ print_total_packets(void)
 {
     lport_t *lport = &pinfo->lports[0];
 
-    print_2_numbers("Total Rx/Tx Packets", lport->other_stats.total_pkts.rx, lport->other_stats.total_pkts.tx);
+    print_2_numbers("Total Rx/Tx Packets", lport->stats.ipackets, lport->stats.opackets);
 }
 
 static inline void

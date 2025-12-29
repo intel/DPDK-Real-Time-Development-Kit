@@ -56,8 +56,10 @@ rx_timestamping(lport_t *lport)
         probe_payload_t *payload;
         lport->other_stats.total_pkts.rx++;
 
+		printf("Received packet of length %u\n", rte_pktmbuf_pkt_len(mbuf));
         if (rte_pktmbuf_pkt_len(mbuf) < sizeof(struct rte_ether_hdr) + sizeof(probe_payload_t)) {
             lport->other_stats.rx_frame_errors++;
+			printf("Frame too short\n");
             rte_pktmbuf_free(mbuf);
             return 0;
         }
@@ -65,6 +67,7 @@ rx_timestamping(lport_t *lport)
         eth_hdr = rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
         if (eth_hdr->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_1588)) {
             lport->other_stats.rx_unknown_frames++;
+			printf("Unknown EtherType: 0x%04x\n", rte_be_to_cpu_16(eth_hdr->ether_type));
             rte_pktmbuf_free(mbuf);
             return 0;
         }
@@ -72,6 +75,7 @@ rx_timestamping(lport_t *lport)
                                                               sizeof(struct rte_ether_hdr)));
         if (rte_be_to_cpu_16(payload->magic) != THE_MAGIC) {
             lport->other_stats.rx_no_probe_frames++;
+			printf("Invalid magic: 0x%04x\n", rte_be_to_cpu_16(payload->magic));
             rte_pktmbuf_free(mbuf);
             return 0;
         }

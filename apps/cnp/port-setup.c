@@ -47,16 +47,17 @@ port_init(lport_t *lport)
 {
     struct rte_eth_dev_info dev_info = {0};
     struct rte_eth_conf port_conf;
-    const uint16_t rx_rings = 1;
-    const uint16_t tx_rings = 1;
+    const uint16_t rx_queues = 1;
+    const uint16_t tx_queues = 1;
     int retval;
     uint16_t nb_rxd = DEFAULT_RING_SIZE;
     uint16_t nb_txd = DEFAULT_RING_SIZE;
-	uint16_t pid, qid;
+    uint16_t pid, qid;
     int socket_id;
 
-	pid = lport->pid;
-	qid = lport->qid;
+    pid = lport->pid;
+    qid = lport->qid;
+    printf("Initializing port %u:%u...\n", pid, qid);
     if (!rte_eth_dev_is_valid_port(pid))
         rte_exit(EXIT_FAILURE, "Invalid port %u\n", pid);
 
@@ -96,7 +97,7 @@ port_init(lport_t *lport)
         port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
 
     /* Configure the Ethernet device. */
-    retval = rte_eth_dev_configure(pid, rx_rings, tx_rings, &port_conf);
+    retval = rte_eth_dev_configure(pid, rx_queues, tx_queues, &port_conf);
     if (retval != 0)
         return retval;
 
@@ -104,8 +105,11 @@ port_init(lport_t *lport)
     if (retval != 0)
         return retval;
 
+    printf("  Rx Mempool: %s\n", lport->rx_mp->name);
+    printf("  Tx Mempool: %s\n", lport->tx_mp->name);
+
     /* Allocate and set up 1 RX queue per Ethernet port. */
-    for (uint16_t q = 0; q < rx_rings; q++) {
+    for (uint16_t q = 0; q < rx_queues; q++) {
         struct rte_eth_rxconf rxconf;
 
         rxconf                   = dev_info.default_rxconf;
@@ -121,7 +125,7 @@ port_init(lport_t *lport)
     }
 
     /* Allocate and set up 1 TX queue per Ethernet port. */
-    for (uint16_t q = 0; q < tx_rings; q++) {
+    for (uint16_t q = 0; q < tx_queues; q++) {
         struct rte_eth_txconf txconf;
 
         txconf                   = dev_info.default_txconf;
