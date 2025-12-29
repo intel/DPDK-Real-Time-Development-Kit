@@ -13,10 +13,10 @@
 #include <unistd.h>
 
 static inline int
-tx_timestamping(lcore_t *lcore)
+tx_timestamping(lport_t *lport)
 {
+	lcore_t *lcore = (lcore_t *)&pinfo->lcores[rte_lcore_id()];
     struct rte_mbuf *m;
-    lport_t *lport = &lcore->lport;
     struct rte_ether_hdr *eth;
 
     if ((m = rte_pktmbuf_alloc(lport->tx_mp)) == NULL) {
@@ -36,7 +36,7 @@ tx_timestamping(lcore_t *lcore)
 
     memset(payload, 0, sizeof(probe_payload_t));
     payload->magic           = rte_cpu_to_be_16(THE_MAGIC);
-    payload->sequence_number = rte_cpu_to_be_16(lcore->lport.tx_sequence++);
+    payload->sequence_number = rte_cpu_to_be_16(lport->tx_sequence++);
     payload->packet_type     = TYPE_PROBE_SEND;
     payload->T1              = clock_get_ns();        // Example timestamp
 
@@ -47,14 +47,13 @@ tx_timestamping(lcore_t *lcore)
 }
 
 static inline int
-rx_timestamping(lcore_t *lcore)
+rx_timestamping(lport_t *lport)
 {
+	lcore_t *lcore = (lcore_t *)&pinfo->lcores[rte_lcore_id()];
     struct rte_mbuf *mbuf;
     struct rte_ether_addr tmp;
-    uint16_t pid = lcore->lport.pid;
-    uint16_t qid = lcore->lport.qid;
 
-    if (rte_eth_rx_burst(pid, qid, &mbuf, 1) > 0) {
+    if (rte_eth_rx_burst(lport->pid, lport->qid, &mbuf, 1) > 0) {
         struct rte_ether_hdr *eth_hdr;
         probe_payload_t *payload;
         lcore->stats.total_pkts.rx++;
@@ -84,7 +83,7 @@ rx_timestamping(lcore_t *lcore)
                             &rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *)->dst_addr);
         rte_ether_addr_copy(&tmp, &rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *)->src_addr);
 
-        while (is_running() && rte_eth_tx_burst(pid, qid, &mbuf, 1) == 0)
+        while (is_running() && rte_eth_tx_burst(lport->pid, lport->qid, &mbuf, 1) == 0)
             ;
         lcore->stats.total_pkts.tx++;
     }
@@ -94,10 +93,19 @@ rx_timestamping(lcore_t *lcore)
 int
 rxtx_routine(void *arg __rte_unused)
 {
-    lcore_t *lcore          = &pinfo->lcores[rte_lcore_id()];
-    lport_t *lport          = &lcore->lport;
+    uint16_t lid            = rte_lcore_id();
+    lcore_t *lcore          = &pinfo->lcores[lid];
+    uint16_t pid            = pinfo->lport_idx++;
+    lport_t *lport          = &pinfo->lports[pid];
     uint64_t tx_begin_ns    = 0;
     timestamping_fn rx_func = rx_timestamping, tx_func = tx_timestamping;
+
+    lcore->lcore_id = lid;
+    lcore->valid    = 1;
+    lport->pid      = pid;
+    lport->qid      = 0;
+    if (port_init(lport) < 0)
+        rte_exit(EXIT_FAILURE, "Cannot init lport %u:%u\n", lport->pid, lport->qid);
 
     while (is_link_up(lport->pid) == false) {
         usleep(250000);
@@ -105,10 +113,6 @@ rxtx_routine(void *arg __rte_unused)
             return 0;
     }
 
-    lcore->lport.pid = 0;
-    lcore->lport.qid = 0;
-    if (port_init(lport) < 0)
-        rte_exit(EXIT_FAILURE, "Cannot init lport %u:%u\n", lcore->lport.pid, lcore->lport.qid);
     tx_begin_ns = clock_get_ns() + pinfo->tx_interval_ns;
 
     /* Run until the application has stopped or been killed. */
@@ -117,11 +121,11 @@ rxtx_routine(void *arg __rte_unused)
         if (clock_get_ns() >= tx_begin_ns) {
             tx_begin_ns += pinfo->tx_interval_ns;
 
-            if (tx_func(lcore))
+            if (tx_func(lport) < 0)
                 rte_exit(EXIT_FAILURE, "failed to send packet on port %u", lport->pid);
         }
 
-        if (rx_func(lcore))
+        if (rx_func(lport) < 0)
             stop_running();
     }
 

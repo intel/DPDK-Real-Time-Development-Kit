@@ -42,7 +42,6 @@ typedef struct lport {
     struct rte_mempool *tx_mp;              // Memory pool for Tx mbufs
     uint32_t tx_sequence;                   // Sequence ID for Tx
     uint32_t rx_sequence;                   // Sequence ID for Rx
-    uint16_t lcore_id;                      // Lcore ID
     uint16_t pid, qid;                      // Port ID and Queue ID, assume 0,0 for now
     struct rte_eth_link link;               // Link status
     struct rte_eth_stats stats;             // Port Statistics
@@ -50,26 +49,28 @@ typedef struct lport {
 } lport_t;
 
 typedef struct lcore {
-    lport_t lport;        // Port associated with the lcore
-    stats_t stats;        // Statistics for the lcore
+    uint16_t lcore_id;        // Lcore ID
+    uint16_t valid;           // lport is valid
+    stats_t stats;            // Statistics for the lcore
 } lcore_t;
 
 typedef struct {
-    rte_atomic32_t flags;                 // Flags for internal use
-    uint16_t pkt_length;                  // Length of packet minus the FCS
-    uint16_t pad0;                        // Padding for alignment
-    char *client_addr_str;                // Client address string <IP:port>
-    char *dst_mac_str;                    // Destination MAC address in string format
-    uint64_t tx_interval_ns;              // Tansmit interval in nanoseconds
-    lcore_t lcores[RTE_MAX_LCORE];        // Array of lcore structures
-    struct termios oldterm;               // Old terminal setup information
+    rte_atomic32_t flags;                    // Flags for internal use
+    uint16_t pkt_length;                     // Length of packet minus the FCS
+    uint16_t lport_idx;                      // Next lport index to use
+    char *client_addr_str;                   // Client address string <IP:port>
+    char *dst_mac_str;                       // Destination MAC address in string format
+    uint64_t tx_interval_ns;                 // Transmit interval in nanoseconds
+    lcore_t lcores[RTE_MAX_LCORE];           // Array of lcore structures
+    lport_t lports[RTE_MAX_ETHPORTS];        // Array of lport structures
+    struct termios oldterm;                  // Old terminal setup information
 } info_t;
 
 extern info_t *pinfo;
 #define TX_BURST_TIME_NS \
     60000        // Number ns (60us) to reduce from cycle time to account for TX processing time
 
-typedef int (*timestamping_fn)(lcore_t *lcore);
+typedef int (*timestamping_fn)(lport_t *lport);
 
 enum {                           // Bit values for info_t.flags field
     APP_RUNNING_FLAG = 0,        // Main Running flag

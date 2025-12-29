@@ -91,7 +91,7 @@ parse_args(int argc, char **argv)
                 pinfo->pkt_length = MIN_PKT_LENGTH;
 
             pinfo->pkt_length -= FCS_SIZE;        // remove the FCS bytes
-            printf(">> Packet Length Set To: %d\n", pinfo->pkt_length);
+            printf(">> Packet Length Set To: %d minus %d (FCS)\n", pinfo->pkt_length, FCS_SIZE);
             break;
         case 'd':        // dst-mac
             free(pinfo->dst_mac_str);

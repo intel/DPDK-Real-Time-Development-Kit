@@ -15,10 +15,10 @@ typedef enum { DST_MAC, SRC_MAC } mac_type_t;
 void
 reset_stats(void)
 {
-    lcore_t *lcore = &pinfo->lcores[0];        // Assume worker lcore is 0
+    lport_t *lport = &pinfo->lports[0];         // Assume port 0
 
-    memset(&lcore->stats, 0, sizeof(lcore->stats));
-    memset(&lcore->lport.stats_prev, 0, sizeof(lcore->lport.stats_prev));
+    memset(&lport->stats, 0, sizeof(lport->stats));
+    memset(&lport->stats_prev, 0, sizeof(lport->stats_prev));
 }
 
 static inline void
@@ -50,11 +50,11 @@ print_3_numbers(const char *name, uint64_t num1, uint64_t num2, uint64_t num3)
 static inline void
 print_link(void)
 {
+    lcore_t *lcore = &pinfo->lcores[0];
+	lport_t *lport = &pinfo->lports[0];
     char buff[256];
 
-    lcore_t *lcore = &pinfo->lcores[0];
-
-    link_status_no_wait(&lcore->lport, buff, sizeof(buff));
+    link_status_no_wait(lport, buff, sizeof(buff));
     print_string("Link Status", buff);
 }
 
@@ -72,31 +72,32 @@ static inline void
 print_rxtx_pps(void)
 {
     lcore_t *lcore = &pinfo->lcores[0];
+	lport_t *lport = &pinfo->lports[0];
 
-    lcore->stats.rx_pps = lcore->lport.stats.ipackets - lcore->lport.stats_prev.ipackets;
-    lcore->stats.tx_pps = lcore->lport.stats.opackets - lcore->lport.stats_prev.opackets;
+    lcore->stats.rx_pps = lport->stats.ipackets - lport->stats_prev.ipackets;
+    lcore->stats.tx_pps = lport->stats.opackets - lport->stats_prev.opackets;
     print_2_numbers("Rx/Tx PPS", lcore->stats.rx_pps, lcore->stats.tx_pps);
 }
 
 static inline void
 print_errors(void)
 {
-    lcore_t *lcore = &pinfo->lcores[0];
+	lport_t *lport = &pinfo->lports[0];
 
-    print_3_numbers("RxMissed/RxError/TxError", lcore->lport.stats.imissed,
-                    lcore->lport.stats.ierrors, lcore->lport.stats.oerrors);
+    print_3_numbers("RxMissed/RxError/TxError", lport->stats.imissed,
+                    lport->stats.ierrors, lport->stats.oerrors);
 }
 
 static inline void
 print_mac(mac_type_t type)
 {
     char buff[64];
-    lcore_t *lcore = &pinfo->lcores[0];
+	lport_t *lport = &pinfo->lports[0];
 
     if (type == DST_MAC)
-        rte_ether_format_addr(buff, sizeof(buff), &lcore->lport.dst_mac);
+        rte_ether_format_addr(buff, sizeof(buff), &lport->dst_mac);
     else
-        rte_ether_format_addr(buff, sizeof(buff), &lcore->lport.src_mac);
+        rte_ether_format_addr(buff, sizeof(buff), &lport->src_mac);
     printf("%s-%s", (type == DST_MAC) ? "Dst" : "Src", buff);
 }
 
@@ -121,6 +122,7 @@ clear_screen(void)
 void
 print_stats(void)
 {
+	lport_t *lport = &pinfo->lports[0];
     static int toggle        = 0;
     static const char *twirl = "|/-\\";
     char version[32];
@@ -134,7 +136,7 @@ print_stats(void)
 
     printf("%c: %s, TX Interval: %'lu ns, ", twirl[toggle++ % 4], "TX Interval",
            pinfo->tx_interval_ns);
-    printf("Packet Length: %'u\n", pinfo->pkt_length);
+    printf("Packet Length: %'u\n", pinfo->pkt_length + FCS_SIZE);
 
     lcore_t *lcore = &pinfo->lcores[0];
 
@@ -149,8 +151,8 @@ print_stats(void)
 
     printf("\n");
 
-    rte_memcpy(&lcore->lport.stats_prev, &lcore->lport.stats, sizeof(struct rte_eth_stats));
-    rte_eth_stats_get(lcore->lport.pid, &lcore->lport.stats);
+    rte_memcpy(&lport->stats_prev, &lport->stats, sizeof(struct rte_eth_stats));
+    rte_eth_stats_get(lport->pid, &lport->stats);
 
     print_link();
     print_errors();

@@ -50,13 +50,13 @@ port_init(lport_t *lport)
     const uint16_t rx_rings = 1;
     const uint16_t tx_rings = 1;
     int retval;
-    uint16_t q, pid, qid;
     uint16_t nb_rxd = DEFAULT_RING_SIZE;
     uint16_t nb_txd = DEFAULT_RING_SIZE;
+	uint16_t pid, qid;
     int socket_id;
 
-    pid = lport->pid;
-    qid = lport->qid;
+	pid = lport->pid;
+	qid = lport->qid;
     if (!rte_eth_dev_is_valid_port(pid))
         rte_exit(EXIT_FAILURE, "Invalid port %u\n", pid);
 
@@ -105,7 +105,7 @@ port_init(lport_t *lport)
         return retval;
 
     /* Allocate and set up 1 RX queue per Ethernet port. */
-    for (q = 0; q < rx_rings; q++) {
+    for (uint16_t q = 0; q < rx_rings; q++) {
         struct rte_eth_rxconf rxconf;
 
         rxconf                   = dev_info.default_rxconf;
@@ -121,7 +121,7 @@ port_init(lport_t *lport)
     }
 
     /* Allocate and set up 1 TX queue per Ethernet port. */
-    for (q = 0; q < tx_rings; q++) {
+    for (uint16_t q = 0; q < tx_rings; q++) {
         struct rte_eth_txconf txconf;
 
         txconf                   = dev_info.default_txconf;
@@ -135,15 +135,18 @@ port_init(lport_t *lport)
             return retval;
     }
 
+    // Convert the MAC address string into binary format
     if (rte_eth_macaddr_get(pid, &lport->src_mac) < 0)
         rte_exit(EXIT_FAILURE, "Can't get MAC address on port=%u : %s\n", pid,
                  rte_strerror(rte_errno));
-    char buff[64];
-    rte_ether_format_addr(buff, sizeof(buff), &lport->src_mac);
-    printf("Port %u MAC %s\n", pid, buff);
 
-    // Convert the MAC address string into binary format
+    char buff[64];
     rte_ether_unformat_addr(pinfo->dst_mac_str, &lport->dst_mac);
+    rte_ether_format_addr(buff, sizeof(buff), &lport->dst_mac);
+    printf("Port %u Dst MAC %s ", pid, buff);
+
+    rte_ether_format_addr(buff, sizeof(buff), &lport->src_mac);
+    printf("Src MAC %s\n", buff);
 
     if (rte_eth_dev_set_ptypes(pid, RTE_PTYPE_UNKNOWN, NULL, 0) < 0)
         rte_exit(EXIT_FAILURE, "Port %u, Failed to disable Ptype parsing\n", pid);

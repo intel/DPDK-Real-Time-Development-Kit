@@ -49,7 +49,7 @@ main(int argc, char *argv[])
     nb_lcores = rte_lcore_count();
     if (nb_lcores < 2)
         rte_exit(EXIT_FAILURE, "Too few lcores available. Number of lcore needed is %u.\n", 2);
-    
+
     nb_ports = rte_eth_dev_count_avail();
     if (nb_ports == 0)
         rte_exit(EXIT_FAILURE, "No available Ethernet ports - bye\n");
@@ -60,9 +60,7 @@ main(int argc, char *argv[])
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "Error with initialization\n");
 
-    for (int n = 0; n < 64; n++)
-        printf("\n");
-    printf("Starting packet %s application\n", "Launch-Time");
+    printf("Starting packet %s application\n", "CNP Tuning");
     sleep_sec(1);
 
     start_running();
@@ -71,6 +69,10 @@ main(int argc, char *argv[])
     if (rte_eal_mp_remote_launch(rxtx_routine, NULL, SKIP_MAIN) < 0)
         rte_exit(EXIT_FAILURE, "Cannot launch lcores\n");
 
+    sleep_sec(1);        // Give some time for worker lcores to start
+
+    for (int n = 0; n < 64; n++)
+        printf("\n");
     keyboard_loop();
 
     RTE_ETH_FOREACH_DEV(port_id)
