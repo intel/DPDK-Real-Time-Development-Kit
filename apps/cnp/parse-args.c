@@ -17,10 +17,10 @@ print_app_usage(const char *prgname)
     printf("%s: Application Options:\n", prgname);
     printf("  Required:\n");
     printf("    -t | --tx-interval N     Number of nanoseconds per TX interval (e.g., 31250ns = 31.250us)\n");
-    printf("    -c | --client IP:port    Enable Client mode <IP:port>\n");
     printf("    -l | --pkt-length N      Length of packet (Min: %d, Max: %d) Default: 64\n", MIN_PKT_LENGTH, MAX_PKT_LENGTH);
     printf("\n");
     printf("  Optional:\n");
+    printf("    -c | --client IP:port    Enable Client mode <IP:port> for client mode only\n");
     printf("    -d | --dst-mac MAC       Destination MAC address (default: FF:FF:FF:FF:FF:FF)\n");
     printf("    -D | --debug             Enable debug mode (Default Disabled)\n");
     printf("    -P | --promiscuous       Enable promiscuous mode (Default Disabled)\n");
@@ -52,10 +52,10 @@ parse_args(int argc, char **argv)
     // clang-format off
     static struct option lgopts[] = {
 		// Required options
-		{"client", required_argument, 0, 'c'},
 		{"tx-interval", required_argument, 0, 't'},
 		{"pkt-length", required_argument, 0, 'l'},
-		// Optional options
+		// Optional
+		{"client", required_argument, 0, 'c'}, // Used for client mode only
 		{"dst-mac", required_argument, 0, 'd'},
 		{"promiscuous", no_argument, 0, 'P'},
 		{"debug", no_argument, 0, 'D'},
