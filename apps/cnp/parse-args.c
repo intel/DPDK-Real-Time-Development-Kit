@@ -66,7 +66,7 @@ parse_args(int argc, char **argv)
     const char *short_options = "c:t:l:d:PhD";
     argvopt                   = argv;
 
-    pinfo->dst_mac_str         = strdup("FF:FF:FF:FF:FF:FF");
+    pinfo->dst_mac_str = strdup("FF:FF:FF:FF:FF:FF");
 
     // Parse the command line options.
     while ((opt = getopt_long(argc, argvopt, short_options, lgopts, &option_index)) != EOF) {
@@ -78,7 +78,7 @@ parse_args(int argc, char **argv)
             free(pinfo->client_addr_str);
             pinfo->client_addr_str = strdup(optarg);
             printf(">> Client Mode Enabled, Remote Address Set To: %s\n", pinfo->client_addr_str);
-			pinfo->client_mode = true;
+            pinfo->client_mode = true;
             break;
         case 't':        // tx-interval
             pinfo->tx_interval_ns = strtoul(optarg, NULL, 0);
@@ -93,17 +93,18 @@ parse_args(int argc, char **argv)
                 pinfo->pkt_length = MIN_PKT_LENGTH;
 
             pinfo->pkt_length -= FCS_SIZE;        // remove the FCS bytes
-            printf(">> Packet Length Set To: %d minus %d (FCS)\n", pinfo->pkt_length, FCS_SIZE);
+            printf(">> Packet Length Set To: %d minus %d (FCS) = %u bytes\n",
+                   pinfo->pkt_length + FCS_SIZE, FCS_SIZE, pinfo->pkt_length);
             break;
         case 'd':        // dst-mac
             free(pinfo->dst_mac_str);
             pinfo->dst_mac_str = strdup(optarg);
             printf(">> Destination MAC Set To: %s\n", pinfo->dst_mac_str);
             break;
-		case 'D': // Debug mode
-			_bset(DEBUG_MODE);
-			printf(">> Debug Mode Enabled\n");
-			break;
+        case 'D':        // Debug mode
+            _bset(DEBUG_MODE);
+            printf(">> Debug Mode Enabled\n");
+            break;
         case 'P':        // promiscuous mode
             _bset(PROMISCUOUS);
             printf(">> Promiscuous Mode Enabled\n");
