@@ -19,6 +19,8 @@ reset_stats(void)
 
     memset(&lport->stats, 0, sizeof(lport->stats));
     memset(&lport->stats_prev, 0, sizeof(lport->stats_prev));
+	memset(&lport->other_stats, 0, sizeof(lport->other_stats));
+	lport->other_stats.rtt.min_ns = 1000000LU;
 }
 
 static inline void
@@ -179,10 +181,11 @@ print_stats(void)
     rte_eth_stats_get(lport->pid, &lport->stats);
 
     print_link();
-    print_errors();
+    print_rxtx_pps();
+	print_min_avg_max(&lport->other_stats.rtt, "RTT");
     print_rx_packets();
     print_total_packets();
-    print_rxtx_pps();
+    print_errors();
     print_number("No Mbufs", lport->other_stats.no_mbufs);
 
     rte_memcpy(&lport->stats_prev, &lport->stats, sizeof(struct rte_eth_stats));

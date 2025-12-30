@@ -7,7 +7,7 @@
  * performance sending a fixed set of packets at a given cycle time.
  */
 
- #pragma once
+#pragma once
 
 #include <stdint.h>
 
@@ -26,14 +26,15 @@ typedef struct {
 
 // Values in nanoseconds unless otherwise specified
 typedef struct stats_s {
-    pkt_count_t total_pkts;            // Total Rx/Tx reference packets
-    uint64_t rx_pps;                   // Number of packets per second
-    uint64_t tx_pps;                   // Number of packets per second
-    uint64_t no_mbufs;                 // No mbufs available
-    uint64_t rx_frame_errors;          // Number of Rx Error frames
-    uint64_t rx_unknown_frames;        // Number of unknown Rx frames
-    uint64_t rx_no_probe_frames;       // Number of Rx frames without probe data
-    uint64_t tx_frame_errors;          // Number of Tx Error frames
+    pkt_count_t total_pkts;             // Total Rx/Tx reference packets
+    uint64_t rx_pps;                    // Number of packets per second
+    uint64_t tx_pps;                    // Number of packets per second
+    uint64_t no_mbufs;                  // No mbufs available
+    uint64_t rx_frame_errors;           // Number of Rx Error frames
+    uint64_t rx_unknown_frames;         // Number of unknown Rx frames
+    uint64_t rx_no_probe_frames;        // Number of Rx frames without probe data
+    uint64_t tx_frame_errors;           // Number of Tx Error frames
+    min_avg_max_t rtt;                  // Round Trip Time statistics
 } stats_t;
 
 void print_stats(void);

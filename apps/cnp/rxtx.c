@@ -38,7 +38,7 @@ tx_timestamping(lport_t *lport)
     payload->magic           = rte_cpu_to_be_16(THE_MAGIC);
     payload->sequence_number = rte_cpu_to_be_16(lport->tx_sequence++);
     payload->packet_type     = TYPE_PROBE_SEND;
-    payload->T1              = clock_get_ns();        // Example timestamp
+    payload->T1              = rte_cpu_to_be_64(clock_get_ns());        // Example timestamp
 
     if (rte_eth_tx_burst(lport->pid, lport->qid, &m, 1) == 0) {
         rte_pktmbuf_free(m);
@@ -62,10 +62,6 @@ rx_timestamping(lport_t *lport)
         struct rte_ether_hdr *eth_hdr;
         probe_payload_t *payload;
 
-		if (pinfo->client_mode && nb_rx) {
-			rte_pktmbuf_free_bulk(rx_mbufs, nb_rx);
-			return 0;
-		}
         nb_tx = 0;
         for (uint16_t i = 0; i < nb_rx; i++) {
             struct rte_mbuf *pkt = rx_mbufs[i];
@@ -93,6 +89,17 @@ rx_timestamping(lport_t *lport)
                 continue;
             }
 
+            uint64_t T1       = rte_be_to_cpu_64(payload->T1);
+            uint64_t delta_ns = clock_get_ns() - T1;
+
+            // Update RTT statistics
+            lport->other_stats.rtt.count++;
+            lport->other_stats.rtt.sum_ns += delta_ns;
+            if (delta_ns < lport->other_stats.rtt.min_ns)
+                lport->other_stats.rtt.min_ns = delta_ns;
+            if (delta_ns > lport->other_stats.rtt.max_ns)
+                lport->other_stats.rtt.max_ns = delta_ns;
+
             // Swap MAC addresses
             rte_ether_addr_copy(&rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->dst_addr, &tmp);
             rte_ether_addr_copy(&rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->src_addr,
@@ -102,7 +109,11 @@ rx_timestamping(lport_t *lport)
             tx_mbufs[nb_tx++] = pkt;
         }
 
-	    send_packets(lport->pid, lport->qid, tx_mbufs, nb_tx);
+		// Client mode - free the Rx packets
+        if (pinfo->client_mode)
+            rte_pktmbuf_free_bulk(tx_mbufs, nb_tx);
+        else // Server mode - echo back
+            send_packets(lport->pid, lport->qid, tx_mbufs, nb_tx);
         lport->other_stats.total_pkts.tx += nb_tx;
     }
 
@@ -129,6 +140,11 @@ rxtx_routine(void *arg __rte_unused)
         if (!is_running())
             goto leave;
     }
+
+    lport->other_stats.rtt.min_ns = 1000000LU;
+    lport->other_stats.rtt.max_ns = 0;
+    lport->other_stats.rtt.count  = 0;
+    lport->other_stats.rtt.sum_ns = 0;
 
     curr_ns     = clock_get_ns();
     tx_begin_ns = curr_ns + (pinfo->tx_interval_ns * 2);        // Start after 2 intervals
