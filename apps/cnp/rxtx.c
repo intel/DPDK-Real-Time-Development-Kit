@@ -139,7 +139,7 @@ rxtx_routine(void *arg __rte_unused)
         if (clock_get_ns() >= tx_begin_ns) {
             tx_begin_ns += pinfo->tx_interval_ns;
 
-            if (tx_func(lport) < 0)
+            if (pinfo->client_mode && tx_func(lport) < 0)
                 rte_exit(EXIT_FAILURE, "failed to send packet on port %u", lport->pid);
         }
 
