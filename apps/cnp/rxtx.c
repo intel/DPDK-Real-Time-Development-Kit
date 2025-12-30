@@ -12,8 +12,6 @@
 #include <rte_hexdump.h>
 #include <unistd.h>
 
-#define RX_BURST_SIZE 16
-
 static inline int
 tx_timestamping(lport_t *lport)
 {
@@ -22,6 +20,7 @@ tx_timestamping(lport_t *lport)
 
     if ((m = rte_pktmbuf_alloc(lport->tx_mp)) == NULL) {
         lport->other_stats.no_mbufs++;
+        printf("No mbufs available for Tx on port %u\n", lport->pid);
         return -1;
     }
 
@@ -42,11 +41,11 @@ tx_timestamping(lport_t *lport)
     payload->T1              = clock_get_ns();        // Example timestamp
 
     if (rte_eth_tx_burst(lport->pid, lport->qid, &m, 1) == 0) {
-		rte_pktmbuf_free(m);
-		lport->other_stats.tx_frame_errors++;
-		printf("Failed to send packet on port %u\n", lport->pid);
-		return -1;
-	}
+        rte_pktmbuf_free(m);
+        lport->other_stats.tx_frame_errors++;
+        printf("Failed to send packet on port %u\n", lport->pid);
+        return -1;
+    }
 
     return 0;
 }
@@ -54,23 +53,25 @@ tx_timestamping(lport_t *lport)
 static inline int
 rx_timestamping(lport_t *lport)
 {
-    struct rte_mbuf *mbufs[RX_BURST_SIZE];
+    struct rte_mbuf **rx_mbufs = lport->rx_mbufs;
+    struct rte_mbuf **tx_mbufs = lport->tx_mbufs;
     struct rte_ether_addr tmp;
-    uint16_t nb_rx;
+    uint16_t nb_rx, nb_tx;
 
-    if ((nb_rx = rte_eth_rx_burst(lport->pid, lport->qid, mbufs, RX_BURST_SIZE)) > 0) {
+    if ((nb_rx = rte_eth_rx_burst(lport->pid, lport->qid, rx_mbufs, RX_BURST_SIZE)) > 0) {
         struct rte_ether_hdr *eth_hdr;
         probe_payload_t *payload;
 
+        nb_tx = 0;
         for (uint16_t i = 0; i < nb_rx; i++) {
-            struct rte_mbuf *pkt = mbufs[i];
+            struct rte_mbuf *pkt = rx_mbufs[i];
 
             if (pkt == NULL) {
-				printf("Received NULL mbuf on port %u\n", lport->pid);
+                printf("Received NULL mbuf on port %u\n", lport->pid);
                 break;
-			}
+            }
 
-			lport->other_stats.total_pkts.rx++;
+            lport->other_stats.total_pkts.rx++;
 
             if (rte_pktmbuf_pkt_len(pkt) < sizeof(struct rte_ether_hdr) + sizeof(probe_payload_t)) {
                 lport->other_stats.rx_frame_errors++;
@@ -100,13 +101,11 @@ rx_timestamping(lport_t *lport)
                                 &rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->dst_addr);
             rte_ether_addr_copy(&tmp, &rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->src_addr);
 
-			if (rte_eth_tx_burst(lport->pid, lport->qid, &pkt, 1) <= 0) {
-				rte_pktmbuf_free(pkt);
-				lport->other_stats.tx_frame_errors++;
-				printf("Failed to send mirror packet on port %u\n", lport->pid);
-			}
-			lport->other_stats.total_pkts.tx++;
+            tx_mbufs[nb_tx++] = pkt;
         }
+
+        send_packets(lport->pid, lport->qid, tx_mbufs, nb_tx);
+        lport->other_stats.total_pkts.tx += nb_tx;
     }
 
     return 0;
@@ -118,9 +117,10 @@ rxtx_routine(void *arg __rte_unused)
     uint16_t pid            = pinfo->lport_idx++;
     lport_t *lport          = &pinfo->lports[pid];
     uint64_t tx_begin_ns    = 0;
+    uint64_t curr_ns        = 0;
     timestamping_fn rx_func = rx_timestamping, tx_func = tx_timestamping;
 
-	printf("Starting RX/TX on port %u on lcore %u\n", pid, rte_lcore_id());
+    printf("Starting RX/TX on port %u on lcore %u\n", pid, rte_lcore_id());
     lport->pid = pid;
     lport->qid = 0;
     if (port_init(lport) < 0)
@@ -132,13 +132,15 @@ rxtx_routine(void *arg __rte_unused)
             goto leave;
     }
 
-    tx_begin_ns = clock_get_ns() + pinfo->tx_interval_ns;
+    curr_ns     = clock_get_ns();
+    tx_begin_ns = curr_ns + (pinfo->tx_interval_ns * 2);        // Start after 2 intervals
 
     /* Run until the application has stopped or been killed. */
     while (is_running()) {
+        curr_ns = clock_get_ns();
         /* Wait until the next cycle time */
-        if (clock_get_ns() >= tx_begin_ns) {
-            tx_begin_ns += pinfo->tx_interval_ns;
+        if (curr_ns >= tx_begin_ns) {
+            tx_begin_ns = curr_ns + pinfo->tx_interval_ns;
 
             if (pinfo->client_mode && tx_func(lport) < 0)
                 rte_exit(EXIT_FAILURE, "failed to send packet on port %u", lport->pid);
@@ -148,7 +150,7 @@ rxtx_routine(void *arg __rte_unused)
             stop_running();
     }
 leave:
-	sleep(1);  // Give some time for RX packets to be processed
+    sleep(1);        // Give some time for RX packets to be processed
 
     return 0;
 }

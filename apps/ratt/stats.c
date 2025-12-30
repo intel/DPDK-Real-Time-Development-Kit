@@ -319,10 +319,10 @@ print_stats(void)
     }
 
 	if (strlen(RTE_VER_SUFFIX) == 0)
-        snprintf(version, sizeof(version), "IRDK %d.%02d.%d", rte_version_year(),
+        snprintf(version, sizeof(version), "RTDK %d.%02d.%d", rte_version_year(),
                  rte_version_month(), rte_version_minor());
     else
-        snprintf(version, sizeof(version), "IRDK %d.%02d.%d%s%d", rte_version_year(),
+        snprintf(version, sizeof(version), "RTDK %d.%02d.%d%s%d", rte_version_year(),
                  rte_version_month(), rte_version_minor(), rte_version_suffix(),
                  rte_version_release());
     printf("   [Press q to quit, r to reset stats, c to clear screen] <%s>\n", version);

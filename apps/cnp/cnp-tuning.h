@@ -35,18 +35,22 @@
 #include "consts.h"
 #include "stats.h"
 
+#define RX_BURST_SIZE 16
+
 typedef struct lport {
-    struct rte_ether_addr src_mac;          // Source MAC address
-    struct rte_ether_addr dst_mac;          // Destination MAC address
-    struct rte_mempool *rx_mp;              // Memory pool for Rx mbufs
-    struct rte_mempool *tx_mp;              // Memory pool for Tx mbufs
-    uint32_t tx_sequence;                   // Sequence ID for Tx
-    uint32_t rx_sequence;                   // Sequence ID for Rx
-    uint16_t pid, qid;                      // Port ID and Queue ID, assume 0,0 for now
-    struct rte_eth_link link;               // Link status
-    struct rte_eth_stats stats;             // Port Statistics
-    struct rte_eth_stats stats_prev;        // Previous port statistics
-    stats_t other_stats;                    // Other statistics
+    struct rte_mbuf *rx_mbufs[RX_BURST_SIZE];        // Array of RX mbufs
+    struct rte_mbuf *tx_mbufs[RX_BURST_SIZE];        // Array of TX mbufs
+    struct rte_ether_addr src_mac;                   // Source MAC address
+    struct rte_ether_addr dst_mac;                   // Destination MAC address
+    struct rte_mempool *rx_mp;                       // Memory pool for Rx mbufs
+    struct rte_mempool *tx_mp;                       // Memory pool for Tx mbufs
+    uint32_t tx_sequence;                            // Sequence ID for Tx
+    uint32_t rx_sequence;                            // Sequence ID for Rx
+    uint16_t pid, qid;                               // Port ID and Queue ID, assume 0,0 for now
+    struct rte_eth_link link;                        // Link status
+    struct rte_eth_stats stats;                      // Port Statistics
+    struct rte_eth_stats stats_prev;                 // Previous port statistics
+    stats_t other_stats;                             // Other statistics
 } lport_t;
 
 typedef struct {
@@ -246,17 +250,15 @@ is_link_up(uint16_t pid)
 }
 
 static inline void
-send_packets(uint16_t pid, uint16_t qid, struct rte_mbuf **mbuf)
+send_packets(uint16_t pid, uint16_t qid, struct rte_mbuf **mbuf, uint32_t num_mbufs)
 {
-    uint16_t nb_tx, num_mbufs;
+    uint16_t nb_tx;
 
-    num_mbufs = 1;
     do {
         nb_tx = rte_eth_tx_burst(pid, qid, mbuf, num_mbufs);
         num_mbufs -= nb_tx;
-        if (num_mbufs == 0)
-            break;
-    } while (is_running());
+		mbuf += nb_tx;
+    } while (num_mbufs && is_running());
 }
 
 static inline struct rte_mempool *

@@ -103,22 +103,26 @@ static inline void
 print_total_packets(void)
 {
     lport_t *lport = &pinfo->lports[0];
+    uint64_t rx_delta, rx, tx;
 
-    print_2_numbers("Total Rx/Tx Packets", lport->stats.ipackets, lport->stats.opackets);
+    rx       = lport->stats.ipackets;
+    tx       = lport->stats.opackets;
+    rx_delta = (tx > rx) ? tx - rx : rx - tx;
+
+    print_3_numbers("Total Rx/Tx/Delta Packets", rx, tx, rx_delta);
 }
 
 static inline void
 print_rx_packets(void)
 {
     lport_t *lport = &pinfo->lports[0];
-    uint64_t rx_delta;
+    uint64_t rx_delta, rx, tx;
 
-    rx_delta = (lport->other_stats.total_pkts.tx > lport->other_stats.total_pkts.rx)
-                   ? lport->other_stats.total_pkts.tx - lport->other_stats.total_pkts.rx
-                   : lport->other_stats.total_pkts.rx - lport->other_stats.total_pkts.tx;
+    rx       = lport->other_stats.total_pkts.rx;
+    tx       = lport->other_stats.total_pkts.tx;
+    rx_delta = (tx > rx) ? tx - rx : rx - tx;
 
-    print_3_numbers("Mirrored Rx/Tx/Delta Packets", lport->other_stats.total_pkts.rx,
-                    lport->other_stats.total_pkts.tx, rx_delta);
+    print_3_numbers("Mirror Rx/Tx/Delta Packets", rx, tx, rx_delta);
 }
 
 static inline void
@@ -146,7 +150,7 @@ print_stats(void)
         reset_stats();
     }
 
-    printf("%c: %s, TX Interval: %'lu ns, ", twirl[toggle++ % 4], "TX Interval",
+    printf("%c: %s, TX Interval: %'lu ns, ", twirl[toggle++ % 4], (pinfo->client_mode) ? "Client Mode" : "Server Mode",
            pinfo->tx_interval_ns);
     printf("Packet Length: %'u\n", pinfo->pkt_length + FCS_SIZE);
 
@@ -159,6 +163,15 @@ print_stats(void)
     print_mac(SRC_MAC);
     printf("\n");
 
+	// convert Mbps to Gbps
+    double link_speed = (double)(lport->link.link_speed * 1000000UL);
+    // number bits per packet
+    double num_bpp = ((double)((pinfo->pkt_length + FCS_SIZE) + 20) * 8.0);
+    // time per burst in nanoseconds
+    double wire_time_ns = ((num_bpp / link_speed) * NSEC_PER_SEC);
+
+    printf("   Wire Time:%'.2f ns, RTT:%'.2f ns, bits %'.0f, PPS:%'.2f\n", wire_time_ns,
+           wire_time_ns * 2.0, num_bpp, (link_speed / num_bpp)/pinfo->tx_interval_ns);
     printf("\n");
 
     rte_memcpy(&lport->stats_prev, &lport->stats, sizeof(struct rte_eth_stats));
