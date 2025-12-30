@@ -68,16 +68,6 @@ print_min_avg_max(min_avg_max_t *rtt, const char *name)
 }
 
 static inline void
-print_rxtx_pps(void)
-{
-    lport_t *lport = &pinfo->lports[0];
-
-    lport->other_stats.rx_pps = lport->stats.ipackets - lport->stats_prev.ipackets;
-    lport->other_stats.tx_pps = lport->stats.opackets - lport->stats_prev.opackets;
-    print_2_numbers("Rx/Tx PPS", lport->other_stats.rx_pps, lport->other_stats.tx_pps);
-}
-
-static inline void
 print_errors(void)
 {
     lport_t *lport = &pinfo->lports[0];
@@ -126,6 +116,16 @@ print_rx_packets(void)
 }
 
 static inline void
+print_rxtx_pps(void)
+{
+    lport_t *lport = &pinfo->lports[0];
+
+    lport->other_stats.rx_pps = lport->stats.ipackets - lport->stats_prev.ipackets;
+    lport->other_stats.tx_pps = lport->stats.opackets - lport->stats_prev.opackets;
+    print_2_numbers("Rx/Tx PPS", lport->other_stats.rx_pps, lport->other_stats.tx_pps);
+}
+
+static inline void
 clear_screen(void)
 {
     if (_btst(CLEAR_SCREEN)) {
@@ -169,12 +169,13 @@ print_stats(void)
     double num_bpp = ((double)((pinfo->pkt_length + FCS_SIZE) + 20) * 8.0);
     // time per burst in nanoseconds
     double wire_time_ns = ((num_bpp / link_speed) * NSEC_PER_SEC);
+	double total_pps = link_speed / num_bpp;
+	double pps = (NSEC_PER_SEC / pinfo->tx_interval_ns);
 
-    printf("   Wire Time:%'.2f ns, RTT:%'.2f ns, bits %'.0f, PPS:%'.2f\n", wire_time_ns,
-           wire_time_ns * 2.0, num_bpp, (link_speed / num_bpp)/pinfo->tx_interval_ns);
+    printf("   Wire Time:%'.2f ns, RTT:%'.2f ns, bits %'.0f,TotalPPS:%'.2f PPS:%'.0f\n", wire_time_ns,
+           wire_time_ns * 2.0, num_bpp, total_pps, pps);
     printf("\n");
 
-    rte_memcpy(&lport->stats_prev, &lport->stats, sizeof(struct rte_eth_stats));
     rte_eth_stats_get(lport->pid, &lport->stats);
 
     print_link();
@@ -183,6 +184,8 @@ print_stats(void)
     print_rx_packets();
     print_total_packets();
     print_rxtx_pps();
+
+    rte_memcpy(&lport->stats_prev, &lport->stats, sizeof(struct rte_eth_stats));
 
     if (strlen(RTE_VER_SUFFIX) == 0)
         snprintf(version, sizeof(version), "DPDK %d.%02d.%d", rte_version_year(),

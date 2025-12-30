@@ -62,17 +62,15 @@ rx_timestamping(lport_t *lport)
         struct rte_ether_hdr *eth_hdr;
         probe_payload_t *payload;
 
+		if (pinfo->client_mode && nb_rx) {
+			rte_pktmbuf_free_bulk(rx_mbufs, nb_rx);
+			return 0;
+		}
         nb_tx = 0;
         for (uint16_t i = 0; i < nb_rx; i++) {
             struct rte_mbuf *pkt = rx_mbufs[i];
 
-            if (pkt == NULL) {
-                printf("Received NULL mbuf on port %u\n", lport->pid);
-                break;
-            }
-
             lport->other_stats.total_pkts.rx++;
-
             if (rte_pktmbuf_pkt_len(pkt) < sizeof(struct rte_ether_hdr) + sizeof(probe_payload_t)) {
                 lport->other_stats.rx_frame_errors++;
                 printf("Frame too short\n");
@@ -83,7 +81,6 @@ rx_timestamping(lport_t *lport)
             eth_hdr = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
             if (eth_hdr->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_1588)) {
                 lport->other_stats.rx_unknown_frames++;
-                printf("Unknown EtherType: 0x%04x\n", rte_be_to_cpu_16(eth_hdr->ether_type));
                 rte_pktmbuf_free(pkt);
                 continue;
             }
@@ -95,6 +92,7 @@ rx_timestamping(lport_t *lport)
                 rte_pktmbuf_free(pkt);
                 continue;
             }
+
             // Swap MAC addresses
             rte_ether_addr_copy(&rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->dst_addr, &tmp);
             rte_ether_addr_copy(&rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->src_addr,
@@ -104,7 +102,7 @@ rx_timestamping(lport_t *lport)
             tx_mbufs[nb_tx++] = pkt;
         }
 
-        send_packets(lport->pid, lport->qid, tx_mbufs, nb_tx);
+	    send_packets(lport->pid, lport->qid, tx_mbufs, nb_tx);
         lport->other_stats.total_pkts.tx += nb_tx;
     }
 
