@@ -15,7 +15,7 @@ typedef enum { DST_MAC, SRC_MAC } mac_type_t;
 void
 reset_stats(void)
 {
-    lport_t *lport = &pinfo->lports[0];         // Assume port 0
+    lport_t *lport = &pinfo->lports[0];        // Assume port 0
 
     memset(&lport->stats, 0, sizeof(lport->stats));
     memset(&lport->stats_prev, 0, sizeof(lport->stats_prev));
@@ -50,7 +50,7 @@ print_3_numbers(const char *name, uint64_t num1, uint64_t num2, uint64_t num3)
 static inline void
 print_link(void)
 {
-	lport_t *lport = &pinfo->lports[0];
+    lport_t *lport = &pinfo->lports[0];
     char buff[256];
 
     link_status_no_wait(lport, buff, sizeof(buff));
@@ -70,7 +70,7 @@ print_min_avg_max(min_avg_max_t *rtt, const char *name)
 static inline void
 print_rxtx_pps(void)
 {
-	lport_t *lport = &pinfo->lports[0];
+    lport_t *lport = &pinfo->lports[0];
 
     lport->other_stats.rx_pps = lport->stats.ipackets - lport->stats_prev.ipackets;
     lport->other_stats.tx_pps = lport->stats.opackets - lport->stats_prev.opackets;
@@ -80,17 +80,17 @@ print_rxtx_pps(void)
 static inline void
 print_errors(void)
 {
-	lport_t *lport = &pinfo->lports[0];
+    lport_t *lport = &pinfo->lports[0];
 
-    print_3_numbers("RxMissed/RxError/TxError", lport->stats.imissed,
-                    lport->stats.ierrors, lport->stats.oerrors);
+    print_3_numbers("RxMissed/RxError/TxError", lport->stats.imissed, lport->stats.ierrors,
+                    lport->stats.oerrors);
 }
 
 static inline void
 print_mac(mac_type_t type)
 {
     char buff[64];
-	lport_t *lport = &pinfo->lports[0];
+    lport_t *lport = &pinfo->lports[0];
 
     if (type == DST_MAC)
         rte_ether_format_addr(buff, sizeof(buff), &lport->dst_mac);
@@ -108,6 +108,20 @@ print_total_packets(void)
 }
 
 static inline void
+print_rx_packets(void)
+{
+    lport_t *lport = &pinfo->lports[0];
+    uint64_t rx_delta;
+
+    rx_delta = (lport->other_stats.total_pkts.tx > lport->other_stats.total_pkts.rx)
+                   ? lport->other_stats.total_pkts.tx - lport->other_stats.total_pkts.rx
+                   : lport->other_stats.total_pkts.rx - lport->other_stats.total_pkts.tx;
+
+    print_3_numbers("Mirrored Rx/Tx/Delta Packets", lport->other_stats.total_pkts.rx,
+                    lport->other_stats.total_pkts.tx, rx_delta);
+}
+
+static inline void
 clear_screen(void)
 {
     if (_btst(CLEAR_SCREEN)) {
@@ -120,7 +134,7 @@ clear_screen(void)
 void
 print_stats(void)
 {
-	lport_t *lport = &pinfo->lports[0];
+    lport_t *lport           = &pinfo->lports[0];
     static int toggle        = 0;
     static const char *twirl = "|/-\\";
     char version[32];
@@ -152,7 +166,8 @@ print_stats(void)
 
     print_link();
     print_errors();
-	print_number("No Mbufs", lport->other_stats.no_mbufs);
+    print_number("No Mbufs", lport->other_stats.no_mbufs);
+    print_rx_packets();
     print_total_packets();
     print_rxtx_pps();
 

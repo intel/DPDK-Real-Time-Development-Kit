@@ -47,7 +47,6 @@ tx_timestamping(lport_t *lport)
 		printf("Failed to send packet on port %u\n", lport->pid);
 		return -1;
 	}
-    lport->other_stats.total_pkts.tx++;
 
     return 0;
 }
@@ -55,22 +54,23 @@ tx_timestamping(lport_t *lport)
 static inline int
 rx_timestamping(lport_t *lport)
 {
-    struct rte_mbuf *mbuf[RX_BURST_SIZE];
+    struct rte_mbuf *mbufs[RX_BURST_SIZE];
     struct rte_ether_addr tmp;
     uint16_t nb_rx;
 
-    if ((nb_rx = rte_eth_rx_burst(lport->pid, lport->qid, mbuf, RX_BURST_SIZE)) > 0) {
+    if ((nb_rx = rte_eth_rx_burst(lport->pid, lport->qid, mbufs, RX_BURST_SIZE)) > 0) {
         struct rte_ether_hdr *eth_hdr;
         probe_payload_t *payload;
 
         for (uint16_t i = 0; i < nb_rx; i++) {
-            struct rte_mbuf *pkt = mbuf[i];
+            struct rte_mbuf *pkt = mbufs[i];
 
-            if (pkt == NULL)
+            if (pkt == NULL) {
+				printf("Received NULL mbuf on port %u\n", lport->pid);
                 break;
+			}
 
-            // Process each received packet
-            lport->other_stats.total_pkts.rx++;
+			lport->other_stats.total_pkts.rx++;
 
             if (rte_pktmbuf_pkt_len(pkt) < sizeof(struct rte_ether_hdr) + sizeof(probe_payload_t)) {
                 lport->other_stats.rx_frame_errors++;
@@ -105,6 +105,7 @@ rx_timestamping(lport_t *lport)
 				lport->other_stats.tx_frame_errors++;
 				printf("Failed to send mirror packet on port %u\n", lport->pid);
 			}
+			lport->other_stats.total_pkts.tx++;
         }
     }
 
