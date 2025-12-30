@@ -180,10 +180,10 @@ print_stats(void)
 
     print_link();
     print_errors();
-    print_number("No Mbufs", lport->other_stats.no_mbufs);
     print_rx_packets();
     print_total_packets();
     print_rxtx_pps();
+    print_number("No Mbufs", lport->other_stats.no_mbufs);
 
     rte_memcpy(&lport->stats_prev, &lport->stats, sizeof(struct rte_eth_stats));
 
