@@ -50,11 +50,14 @@ typedef struct lport {
     struct rte_eth_link link;                        // Link status
     struct rte_eth_stats stats;                      // Port Statistics
     struct rte_eth_stats stats_prev;                 // Previous port statistics
+    uint64_t tx_timestamp;                           // Last TX timestamp
     stats_t other_stats;                             // Other statistics
 } lport_t;
 
 typedef struct {
     rte_atomic32_t flags;                    // Flags for internal use
+    uint64_t rx_timestamp_flag;              // mbuf Rx timestamp flag
+    uint16_t rx_timestamp_offset;            // RX timestamp offset in mbuf dynamic fields
     uint16_t pkt_length;                     // Length of packet minus the FCS
     uint16_t lport_idx;                      // Next lport index to use
     uint16_t client_mode;                    // Client mode enabled flag
@@ -76,6 +79,8 @@ enum {                           // Bit values for info_t.flags field
     APP_RUNNING_FLAG = 0,        // Main Running flag
     TTY_IS_INITED_FLAG,          // TTY has been inited flag
     PROMISCUOUS_FLAG,            // Port promiscuous enabled flag
+    HW_TIMESTAMP_FLAG,           // Hardware Rx/Tx timestamping enabled flag
+    SW_TIMESTAMP_FLAG,           // Software timestamping enabled flag
     DEBUG_MODE_FLAG,             // Debug mode enabled flag
     CLEAR_SCREEN_FLAG,           // Clear the screen flag
     RESET_STATS_FLAG,            // Clear the statistics flag
@@ -257,7 +262,7 @@ send_packets(uint16_t pid, uint16_t qid, struct rte_mbuf **mbuf, uint32_t num_mb
     do {
         nb_tx = rte_eth_tx_burst(pid, qid, mbuf, num_mbufs);
         num_mbufs -= nb_tx;
-		mbuf += nb_tx;
+        mbuf += nb_tx;
     } while (num_mbufs && is_running());
 }
 

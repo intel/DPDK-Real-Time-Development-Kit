@@ -158,6 +158,8 @@ print_stats(void)
 
     printf("   Modes: ");
     printf("%sPromiscuous%s ", _btst(PROMISCUOUS) ? "\033[32m" : "\033[31m", "\033[0m");
+	printf("%sHW Timestamping%s ", _btst(HW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
+	printf("%sSW Timestamping%s ", _btst(SW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
     printf("\n");
     printf("   MAC: ");
     print_mac(DST_MAC);
@@ -183,6 +185,7 @@ print_stats(void)
     print_link();
     print_rxtx_pps();
 	print_min_avg_max(&lport->other_stats.rtt, "RTT");
+	print_min_avg_max(&lport->other_stats.hw_rtt, "HW RTT");
     print_rx_packets();
     print_total_packets();
     print_errors();

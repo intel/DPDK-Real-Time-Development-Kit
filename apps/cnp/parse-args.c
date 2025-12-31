@@ -16,15 +16,17 @@ print_app_usage(const char *prgname)
     printf("\n");
     printf("%s: Application Options:\n", prgname);
     printf("  Required:\n");
-    printf("    -t | --tx-interval N     Number of nanoseconds per TX interval (e.g., 31250ns = 31.250us)\n");
-    printf("    -l | --pkt-length N      Length of packet (Min: %d, Max: %d) Default: 64\n", MIN_PKT_LENGTH, MAX_PKT_LENGTH);
+    printf("    -t | --tx-interval N      Number of nanoseconds per TX interval (e.g., 31250ns = 31.250us)\n");
+    printf("    -l | --pkt-length N       Length of packet (Min: %d, Max: %d) Default: 64\n", MIN_PKT_LENGTH, MAX_PKT_LENGTH);
     printf("\n");
     printf("  Optional:\n");
-    printf("    -c | --client IP:port    Enable Client mode <IP:port> for client mode only\n");
-    printf("    -d | --dst-mac MAC       Destination MAC address (default: FF:FF:FF:FF:FF:FF)\n");
-    printf("    -D | --debug             Enable debug mode (Default Disabled)\n");
-    printf("    -P | --promiscuous       Enable promiscuous mode (Default Disabled)\n");
-    printf("    -h | --help              Print this help text\n");
+    printf("    -c | --client IP:port     Enable Client mode <IP:port> for client mode only\n");
+    printf("    -d | --dst-mac MAC        Destination MAC address (default: FF:FF:FF:FF:FF:FF)\n");
+	printf("    -H | --hw-timestamp Enable hardware IEEE1588 timestamping (Default Disabled)\n");
+	printf("    -S | --sw-timestamp       Enable software timestamping (Default Disabled)\n");
+    printf("    -D | --debug              Enable debug mode (Default Disabled)\n");
+    printf("    -P | --promiscuous        Enable promiscuous mode (Default Disabled)\n");
+    printf("    -h | --help               Print this help text\n");
     printf("\n");
     // clang-format on
 }
@@ -58,12 +60,14 @@ parse_args(int argc, char **argv)
 		{"client", required_argument, 0, 'c'}, // Used for client mode only
 		{"dst-mac", required_argument, 0, 'd'},
 		{"promiscuous", no_argument, 0, 'P'},
+		{"hw-timestamp", no_argument, 0, 'H'},
+		{"sw-timestamp", no_argument, 0, 'S'},
 		{"debug", no_argument, 0, 'D'},
 		{"help", no_argument, 0, 'h'},
 		{NULL, 0, 0, 0}
     };
     // clang-format on
-    const char *short_options = "c:t:l:d:PhD";
+    const char *short_options = "c:t:l:d:PHSDh";
     argvopt                   = argv;
 
     pinfo->dst_mac_str = strdup("FF:FF:FF:FF:FF:FF");
@@ -109,6 +113,14 @@ parse_args(int argc, char **argv)
             _bset(PROMISCUOUS);
             printf(">> Promiscuous Mode Enabled\n");
             break;
+        case 'H':        // Hardware Rx/Tx IEEE1588 timestamping
+            _bset(HW_TIMESTAMP);
+            printf(">> Hardware RX IEEE1588 Timestamping Enabled\n");
+            break;
+		case 'S':        // Software timestamping
+			printf(">> Software Timestamping Selected (No Effect in this version)\n");
+			_bset(SW_TIMESTAMP); // For now, enable hardware timestamping as software timestamping is not implemented
+			break;
         case 'h':
             print_app_usage(prgname);
             exit(0);

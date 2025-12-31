@@ -96,6 +96,9 @@ port_init(lport_t *lport)
     if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE)
         port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
 
+    if (_btst(HW_TIMESTAMP))
+        port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
+
     /* Configure the Ethernet device. */
     retval = rte_eth_dev_configure(pid, rx_queues, tx_queues, &port_conf);
     if (retval != 0)
@@ -166,6 +169,23 @@ port_init(lport_t *lport)
             printf("Promiscuous mode enable failed: %s\n", rte_strerror(-retval));
             return retval;
         }
+    }
+
+    if (_btst(HW_TIMESTAMP)) {
+        int offset    = 0;
+        uint64_t flag = 0;
+
+        if ((retval = rte_eth_timesync_enable(pid)) != 0)
+            rte_exit(EXIT_FAILURE, "rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
+
+        retval = rte_mbuf_dyn_rx_timestamp_register(&offset, &flag);
+        if (retval < 0)
+            rte_exit(EXIT_FAILURE, "Failed to register Rx timestamp dynamic field/flag: %s\n",
+                     rte_strerror(-retval));
+        pinfo->rx_timestamp_offset = offset;
+        pinfo->rx_timestamp_flag   = flag;
+        fprintf(stderr, ">> MBUF Hardware    Rx Timestamp offset %d, bit %016" PRIu64 "\n",
+                pinfo->rx_timestamp_offset, pinfo->rx_timestamp_flag);
     }
 
     return 0;

@@ -35,6 +35,7 @@ typedef struct stats_s {
     uint64_t rx_no_probe_frames;        // Number of Rx frames without probe data
     uint64_t tx_frame_errors;           // Number of Tx Error frames
     min_avg_max_t rtt;                  // Round Trip Time statistics
+    min_avg_max_t hw_rtt;               // Hardware Round Trip Time statistics
 } stats_t;
 
 void print_stats(void);
