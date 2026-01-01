@@ -159,8 +159,8 @@ print_stats(void)
 
     printf("   Modes: ");
     printf("%sPromiscuous%s ", _btst(PROMISCUOUS) ? "\033[32m" : "\033[31m", "\033[0m");
-	printf("%sHW Timestamping%s ", _btst(HW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
-	printf("%sSW Timestamping%s ", _btst(SW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
+	printf("%sHW-TMST%s ", _btst(HW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
+	printf("%sSW-TMST%s ", _btst(SW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
     printf("\n");
     printf("   MAC: ");
     print_mac(DST_MAC);

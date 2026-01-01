@@ -220,7 +220,7 @@ rxtx_routine(void *arg __rte_unused)
     lport->other_stats.hw_rtt.sum_ns = 0;
 
     curr_ns     = clock_get_ns();
-    tx_begin_ns = curr_ns + (pinfo->tx_interval_ns * 2);        // Start after 2 intervals
+    tx_begin_ns = curr_ns + pinfo->tx_interval_ns;        // Start after 1 interval
 
     /* Run until the application has stopped or been killed. */
     while (is_running()) {
