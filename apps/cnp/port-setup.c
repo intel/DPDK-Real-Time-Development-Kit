@@ -184,8 +184,6 @@ port_init(lport_t *lport)
                      rte_strerror(-retval));
         pinfo->rx_timestamp_offset = offset;
         pinfo->rx_timestamp_flag   = flag;
-        fprintf(stderr, ">> MBUF Hardware    Rx Timestamp offset %d, bit %016" PRIu64 "\n",
-                pinfo->rx_timestamp_offset, pinfo->rx_timestamp_flag);
     }
 
     return 0;

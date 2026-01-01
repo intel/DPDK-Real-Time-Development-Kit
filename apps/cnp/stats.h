@@ -30,6 +30,7 @@ typedef struct stats_s {
     uint64_t rx_pps;                    // Number of packets per second
     uint64_t tx_pps;                    // Number of packets per second
     uint64_t no_mbufs;                  // No mbufs available
+	uint64_t many_rx;                   // Number of times more than 1 packet received in burst
     uint64_t rx_frame_errors;           // Number of Rx Error frames
     uint64_t rx_unknown_frames;         // Number of unknown Rx frames
     uint64_t rx_no_probe_frames;        // Number of Rx frames without probe data

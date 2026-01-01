@@ -31,7 +31,10 @@ poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp)
             // Hardware doesn't support or flag wasn't set
             break;
         }
+        printf("Waiting for TX timestamp...\n");
+        rte_pause();
     } while (ret == -EAGAIN && clock_get_ns() < end_ns);
+
     return ret;
 }
 
@@ -75,13 +78,9 @@ tx_timestamping(lport_t *lport)
         printf("Failed to send packet on port %u\n", lport->pid);
         return -1;
     }
-    if (_btst(HW_TIMESTAMP)) {
-        uint64_t tx_timestamp = UINT64_MAX;
-
-        poll_tx_timestamp(lport->pid, &tx_timestamp);
-        if (tx_timestamp != UINT64_MAX)
-            lport->tx_timestamp = tx_timestamp;
-    }
+    if (_btst(HW_TIMESTAMP))
+        if (poll_tx_timestamp(lport->pid, &lport->tx_timestamp))
+			printf("Failed to get TX timestamp on port %u\n", lport->pid);
 
     return 0;
 }
@@ -98,6 +97,9 @@ rx_timestamping(lport_t *lport)
     if ((nb_rx = rte_eth_rx_burst(lport->pid, lport->qid, rx_mbufs, RX_BURST_SIZE)) > 0) {
         struct rte_ether_hdr *eth_hdr;
         probe_payload_t *payload;
+
+		if (nb_rx > 1)
+			lport->other_stats.many_rx++;
 
         nb_tx = 0;
         for (uint16_t i = 0; i < nb_rx; i++) {
@@ -142,24 +144,25 @@ rx_timestamping(lport_t *lport)
             }
 
             if (_btst(HW_TIMESTAMP)) {
-                // Retrieve hardware RX timestamp from the MBUF
-
                 // Check only the first packet for timestamp data else use system clock
                 if (pkt->ol_flags & pinfo->rx_timestamp_flag) {
                     uint64_t rx_timestamp =
                         *RTE_MBUF_DYNFIELD(pkt, pinfo->rx_timestamp_offset, uint64_t *);
 
-                    delta_ns = rx_timestamp - lport->tx_timestamp;
+                    if (lport->tx_timestamp != UINT64_MAX) {
+                        if (rx_timestamp >= lport->tx_timestamp) {
+                            delta_ns = rx_timestamp - lport->tx_timestamp;
 
-                    // Update HW RTT statistics
-                    lport->other_stats.hw_rtt.count++;
-                    lport->other_stats.hw_rtt.sum_ns += delta_ns;
-                    if (delta_ns < lport->other_stats.hw_rtt.min_ns)
-                        lport->other_stats.hw_rtt.min_ns = delta_ns;
-                    if (delta_ns > lport->other_stats.hw_rtt.max_ns)
-                        lport->other_stats.hw_rtt.max_ns = delta_ns;
-                    printf("Timestamp Rx %" PRIu64 ", Tx %" PRIu64 ", Delta %" PRIu64 "\n",
-                           rx_timestamp, lport->tx_timestamp, delta_ns);
+                            // Update HW RTT statistics
+                            lport->other_stats.hw_rtt.count++;
+                            lport->other_stats.hw_rtt.sum_ns += delta_ns;
+                            if (delta_ns < lport->other_stats.hw_rtt.min_ns)
+                                lport->other_stats.hw_rtt.min_ns = delta_ns;
+                            if (delta_ns > lport->other_stats.hw_rtt.max_ns)
+                                lport->other_stats.hw_rtt.max_ns = delta_ns;
+                        }
+                    } else
+                        printf("No valid TX timestamp to calculate HW RTT\n");
                 }
             }
 
@@ -196,9 +199,9 @@ rxtx_routine(void *arg __rte_unused)
     lport->pid = pid;
     lport->qid = 0;
     if (port_init(lport) < 0) {
-		stop_running();
+        stop_running();
         rte_exit(EXIT_FAILURE, "Cannot init lport %u:%u\n", pid, lport->qid);
-	}
+    }
 
     while (is_link_up(pid) == false) {
         usleep(250000);
@@ -206,10 +209,15 @@ rxtx_routine(void *arg __rte_unused)
             goto leave;
     }
 
-    lport->other_stats.rtt.min_ns = 1000000LU;
+    lport->other_stats.rtt.min_ns = 1000000UL;
     lport->other_stats.rtt.max_ns = 0;
     lport->other_stats.rtt.count  = 0;
     lport->other_stats.rtt.sum_ns = 0;
+
+    lport->other_stats.hw_rtt.min_ns = 1000000UL;
+    lport->other_stats.hw_rtt.max_ns = 0;
+    lport->other_stats.hw_rtt.count  = 0;
+    lport->other_stats.hw_rtt.sum_ns = 0;
 
     curr_ns     = clock_get_ns();
     tx_begin_ns = curr_ns + (pinfo->tx_interval_ns * 2);        // Start after 2 intervals
