@@ -28,7 +28,7 @@ MESON_OPTS := -Dbuildtype=$(BUILD_TYPE) \
 
 # Always add PKG_CONFIG_PATH to use the locally installed DPDK
 # Handle both lib/pkgconfig and lib/x86_64-linux-gnu/pkgconfig paths
-export PKG_CONFIG_PATH := $(DPDK_INSTALL_DIR)/lib/pkgconfig:$(DPDK_INSTALL_DIR)/lib/x86_64-linux-gnu/pkgconfig:$(PKG_CONFIG_PATH)
+export PKG_CONFIG_PATH := $(DPDK_INSTALL_DIR)/lib/pkgconfig:$(DPDK_INSTALL_DIR)/lib64/pkgconfig:$(DPDK_INSTALL_DIR)/lib/x86_64-linux-gnu/pkgconfig:$(PKG_CONFIG_PATH)
 
 # Color output
 RED := \033[0;31m
@@ -114,7 +114,9 @@ config:
 .PHONY: setup
 setup: config
 	@if [ ! -f "$(DPDK_INSTALL_DIR)/lib/pkgconfig/libdpdk.pc" ] && \
+		[ ! -f "$(DPDK_INSTALL_DIR)/lib64/pkgconfig/libdpdk.pc" ] && \
 	   [ ! -f "$(DPDK_INSTALL_DIR)/lib/x86_64-linux-gnu/pkgconfig/libdpdk.pc" ]; then \
+	    echo "PKG_CONFIG_PATH: $(PKG_CONFIG_PATH)"; \
 		echo "$(YELLOW)DPDK not found, building...$(NC)"; \
 		$(MAKE) dpdk; \
 	fi
