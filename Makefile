@@ -18,6 +18,8 @@ DPDK_DIR := $(EXTERNAL_DIR)/dpdk
 DPDK_BUILD_DIR := builddir
 DPDK_FULL_BUILD_DIR := $(DPDK_DIR)/$(DPDK_BUILD_DIR)
 DPDK_INSTALL_DIR := $(EXTERNAL_DIR)/install
+DPDK_LIB_DIR := lib/x86_64-linux-gnu
+DPDK_PKGCONFIG_DIR := $(DPDK_INSTALL_DIR)/$(DPDK_LIB_DIR)/pkgconfig
 PATCHES_DIR := $(SCRIPT_DIR)/patches
 EXECUTABLE := $(BUILD_DIR)/apps/launch-time/lttt
 
@@ -28,7 +30,7 @@ MESON_OPTS := -Dbuildtype=$(BUILD_TYPE) \
 
 # Always add PKG_CONFIG_PATH to use the locally installed DPDK
 # Handle both lib/pkgconfig and lib/x86_64-linux-gnu/pkgconfig paths
-export PKG_CONFIG_PATH := $(DPDK_INSTALL_DIR)/lib/pkgconfig:$(DPDK_INSTALL_DIR)/lib64/pkgconfig:$(DPDK_INSTALL_DIR)/lib/x86_64-linux-gnu/pkgconfig:$(PKG_CONFIG_PATH)
+export PKG_CONFIG_PATH := $(DPDK_PKGCONFIG_DIR):$(PKG_CONFIG_PATH)
 
 # Color output
 RED := \033[0;31m
@@ -106,6 +108,7 @@ config:
 	@echo "Enable MQTT: $(ENABLE_MQTT)"
 	@echo "Enable debug: $(ENABLE_DEBUG)"
 	@echo "DPDK install directory: $(DPDK_INSTALL_DIR)"
+	@echo "DPDK pkgconfig directory: $(DPDK_PKGCONFIG_DIR)"
 	@echo "DPDK git URL: $(DPDK_GIT_URL)"
 	@echo "DPDK git tag: $(DPDK_GIT_TAG)"
 	@echo "$(BLUE)========================================$(NC)"
@@ -113,14 +116,12 @@ config:
 # Setup meson build - ensures DPDK is installed first
 .PHONY: setup
 setup: config
-	@if [ ! -f "$(DPDK_INSTALL_DIR)/lib/pkgconfig/libdpdk.pc" ] && \
-		[ ! -f "$(DPDK_INSTALL_DIR)/lib64/pkgconfig/libdpdk.pc" ] && \
-	   [ ! -f "$(DPDK_INSTALL_DIR)/lib/x86_64-linux-gnu/pkgconfig/libdpdk.pc" ]; then \
+	@if [ ! -f "$(DPDK_PKGCONFIG_DIR)/libdpdk.pc" ]; then \
 	    echo "PKG_CONFIG_PATH: $(PKG_CONFIG_PATH)"; \
 		echo "$(YELLOW)DPDK not found, building...$(NC)"; \
 		$(MAKE) dpdk; \
 	fi
-	@echo "$(GREEN)Setting up Meson build...$(NC)"
+	@echo "$(GREEN)Setting up RTDK Meson build...$(NC)"
 	@meson setup $(MESON_OPTS) $(BUILD_DIR) || \
 		(echo "$(YELLOW)Build directory exists, reconfiguring...$(NC)" && \
 		 meson setup --reconfigure $(MESON_OPTS) $(BUILD_DIR))
@@ -208,7 +209,7 @@ dpdk-build:
 		echo "$(GREEN)Building DPDK...$(NC)"; \
 		cd $(DPDK_DIR) && \
 		echo "Configuring DPDK with meson..." && \
-		meson setup $(DPDK_BUILD_DIR) -Dexamples='' -Dtests=false --prefix=$(DPDK_INSTALL_DIR) && \
+		meson setup $(DPDK_BUILD_DIR) -Dexamples='' -Dtests=false --prefix=$(DPDK_INSTALL_DIR) --libdir=$(DPDK_LIB_DIR) && \
 		echo "Compiling DPDK..." && \
 		ninja -C $(DPDK_BUILD_DIR) && \
 		echo "$(GREEN)DPDK build complete$(NC)"; \
@@ -219,7 +220,7 @@ dpdk-build:
 # Install DPDK to local directory
 .PHONY: dpdk-install
 dpdk-install:
-	@if [ ! -f "$(DPDK_INSTALL_DIR)/lib/pkgconfig/libdpdk.pc" ]; then \
+	@if [ ! -f "$(DPDK_PKGCONFIG_DIR)/libdpdk.pc" ]; then \
 		echo "$(GREEN)Installing DPDK to $(DPDK_INSTALL_DIR)...$(NC)"; \
 		cd $(DPDK_DIR) && \
 		ninja -C $(DPDK_BUILD_DIR) install && \
