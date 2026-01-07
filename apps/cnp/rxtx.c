@@ -26,6 +26,8 @@ poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp)
         ret = rte_eth_timesync_read_tx_timestamp(port_id, &timestamp);
         if (ret == 0) {        // Success
             *tx_timestamp = ts_to_ns(&timestamp);
+            printf("Got TX timespec: %'" PRIu64 " sec, %'" PRIu64 " ns\n", (uint64_t)timestamp.tv_sec,
+                   (uint64_t)timestamp.tv_nsec);
             break;
         } else if (ret == -ENOTSUP) {
             // Hardware doesn't support or flag wasn't set
@@ -57,10 +59,6 @@ tx_timestamping(lport_t *lport)
     rte_ether_addr_copy(&lport->dst_mac, &eth->dst_addr);
     eth->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_1588);
 
-    // Set TX timestamp flag if enabled
-    if (_btst(HW_TIMESTAMP))
-        m->ol_flags |= RTE_MBUF_F_TX_IEEE1588_TMST;
-
     if (_btst(SW_TIMESTAMP)) {
         probe_payload_t *payload =
             (probe_payload_t *)(rte_pktmbuf_mtod_offset(m, char *, sizeof(struct rte_ether_hdr)));
@@ -72,15 +70,15 @@ tx_timestamping(lport_t *lport)
         payload->T1              = rte_cpu_to_be_64(clock_get_ns());        // Example timestamp
     }
 
-    if (rte_eth_tx_burst(lport->pid, lport->qid, &m, 1) == 0) {
-        rte_pktmbuf_free(m);
-        lport->other_stats.tx_frame_errors++;
-        printf("Failed to send packet on port %u\n", lport->pid);
-        return -1;
-    }
+    // Set TX timestamp flag if enabled
+    if (_btst(HW_TIMESTAMP))
+        m->ol_flags |= RTE_MBUF_F_TX_IEEE1588_TMST;
+
+    send_packets(lport->pid, lport->qid, &m, 1);
+
     if (_btst(HW_TIMESTAMP))
         if (poll_tx_timestamp(lport->pid, &lport->tx_timestamp))
-			printf("Failed to get TX timestamp on port %u\n", lport->pid);
+            printf("Failed to get TX timestamp on port %u\n", lport->pid);
 
     return 0;
 }
@@ -98,8 +96,8 @@ rx_timestamping(lport_t *lport)
         struct rte_ether_hdr *eth_hdr;
         probe_payload_t *payload;
 
-		if (nb_rx > 1)
-			lport->other_stats.many_rx++;
+        if (nb_rx > 1)
+            lport->other_stats.many_rx++;
 
         nb_tx = 0;
         for (uint16_t i = 0; i < nb_rx; i++) {
@@ -178,7 +176,7 @@ rx_timestamping(lport_t *lport)
         // Client mode - free the Rx packets
         if (pinfo->client_mode)
             rte_pktmbuf_free_bulk(tx_mbufs, nb_tx);
-        else        // Server mode - echo back
+        else        // Server mode - loopback packets
             send_packets(lport->pid, lport->qid, tx_mbufs, nb_tx);
         lport->other_stats.total_pkts.tx += nb_tx;
     }
@@ -189,35 +187,26 @@ rx_timestamping(lport_t *lport)
 int
 rxtx_routine(void *arg __rte_unused)
 {
-    uint16_t pid            = pinfo->lport_idx++;
-    lport_t *lport          = &pinfo->lports[pid];
-    uint64_t tx_begin_ns    = 0;
-    uint64_t curr_ns        = 0;
-    timestamping_fn rx_func = rx_timestamping, tx_func = tx_timestamping;
+    uint16_t pid         = pinfo->lport_idx++;
+    lport_t *lport       = &pinfo->lports[pid];
+    uint64_t tx_begin_ns = 0;
+    uint64_t curr_ns     = 0;
 
     printf("Starting RX/TX on port %u on lcore %u\n", pid, rte_lcore_id());
     lport->pid = pid;
     lport->qid = 0;
     if (port_init(lport) < 0) {
-        stop_running();
-        rte_exit(EXIT_FAILURE, "Cannot init lport %u:%u\n", pid, lport->qid);
+        printf("Cannot init lport %u:%u\n", pid, lport->qid);
+        goto leave;
     }
 
     while (is_link_up(pid) == false) {
-        usleep(250000);
+        usleep(2500);
         if (!is_running())
             goto leave;
     }
 
-    lport->other_stats.rtt.min_ns = 1000000UL;
-    lport->other_stats.rtt.max_ns = 0;
-    lport->other_stats.rtt.count  = 0;
-    lport->other_stats.rtt.sum_ns = 0;
-
-    lport->other_stats.hw_rtt.min_ns = 1000000UL;
-    lport->other_stats.hw_rtt.max_ns = 0;
-    lport->other_stats.hw_rtt.count  = 0;
-    lport->other_stats.hw_rtt.sum_ns = 0;
+    _bset(RESET_STATS);        // Reset stats at start of test
 
     curr_ns     = clock_get_ns();
     tx_begin_ns = curr_ns + pinfo->tx_interval_ns;        // Start after 1 interval
@@ -229,15 +218,17 @@ rxtx_routine(void *arg __rte_unused)
         if (curr_ns >= tx_begin_ns) {
             tx_begin_ns = curr_ns + pinfo->tx_interval_ns;
 
-            if (pinfo->client_mode && tx_func(lport) < 0)
-                rte_exit(EXIT_FAILURE, "failed to send packet on port %u", lport->pid);
+            if (pinfo->client_mode && tx_timestamping(lport) < 0) {
+                printf("Failed to send packet on port %u\n", lport->pid);
+                break;
+            }
         }
 
-        if (rx_func(lport) < 0)
-            stop_running();
+        if (rx_timestamping(lport) < 0)
+            break;
     }
 leave:
-    sleep(1);        // Give some time for RX packets to be processed
+    stop_running();
 
     return 0;
 }

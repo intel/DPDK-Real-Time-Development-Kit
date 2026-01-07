@@ -40,4 +40,3 @@ typedef struct stats_s {
 } stats_t;
 
 void print_stats(void);
-void reset_stats(void);

@@ -73,8 +73,6 @@ extern info_t *pinfo;
 #define TX_BURST_TIME_NS \
     60000        // Number ns (60us) to reduce from cycle time to account for TX processing time
 
-typedef int (*timestamping_fn)(lport_t *lport);
-
 enum {                           // Bit values for info_t.flags field
     APP_RUNNING_FLAG = 0,        // Main Running flag
     TTY_IS_INITED_FLAG,          // TTY has been inited flag

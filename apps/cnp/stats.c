@@ -12,7 +12,7 @@
 enum { NAME_WIDTH = 28, COLUMN_WIDTH = 42 };
 typedef enum { DST_MAC, SRC_MAC } mac_type_t;
 
-void
+static inline void
 reset_stats(void)
 {
     lport_t *lport = &pinfo->lports[0];        // Assume port 0
