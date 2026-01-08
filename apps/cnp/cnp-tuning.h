@@ -50,7 +50,7 @@ typedef struct lport {
     struct rte_eth_link link;                        // Link status
     struct rte_eth_stats stats;                      // Port Statistics
     struct rte_eth_stats stats_prev;                 // Previous port statistics
-    uint64_t tx_timestamp;                           // Last TX timestamp
+    uint64_t tx_timestamp;                           // Last TX timestamp (UINT64_MAX = invalid)
     stats_t other_stats;                             // Other statistics
 } lport_t;
 

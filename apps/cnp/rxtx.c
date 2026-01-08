@@ -12,30 +12,39 @@
 #include <rte_hexdump.h>
 #include <unistd.h>
 
-#define TX_READ_TIMESTAMP_TIMO 20000ULL        // 20us timeout
+#define TX_READ_TIMESTAMP_TIMO 10       // 10 * 100us timeout (increased for better NIC compatibility)
 
 static int
-poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp)
+poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
 {
     struct timespec timestamp = {0};
-    uint64_t start_ns         = clock_get_ns(),
-             end_ns           = start_ns + TX_READ_TIMESTAMP_TIMO;        // 20us timeout
+    int timo = TX_READ_TIMESTAMP_TIMO;
     int ret;
 
     do {
         ret = rte_eth_timesync_read_tx_timestamp(port_id, &timestamp);
-        if (ret == 0) {        // Success
-            *tx_timestamp = ts_to_ns(&timestamp);
-            printf("Got TX timespec: %'" PRIu64 " sec, %'" PRIu64 " ns\n", (uint64_t)timestamp.tv_sec,
-                   (uint64_t)timestamp.tv_nsec);
+        if (ret == -ENOTSUP) {
+            // Hardware doesn't support timestamping
+            if (_btst(DEBUG_MODE))
+                printf("TX timestamp not supported by hardware\n");
+            stats->tx_timestamp_errors++;
             break;
-        } else if (ret == -ENOTSUP) {
-            // Hardware doesn't support or flag wasn't set
+        } else if (ret == 0) {        // Success
+            *tx_timestamp = ts_to_ns(&timestamp);
+            if (_btst(DEBUG_MODE))
+                printf("Got TX timespec: %'" PRIu64 " sec, %'" PRIu64 " ns\n", 
+                       (uint64_t)timestamp.tv_sec, (uint64_t)timestamp.tv_nsec);
             break;
         }
-        printf("Waiting for TX timestamp...\n");
+        stats->tx_timestamp_timeouts++;
         rte_pause();
-    } while (ret == -EAGAIN && clock_get_ns() < end_ns);
+    } while (--timo);
+
+    if (ret == -EAGAIN) {
+        stats->tx_timestamp_timeouts++;
+        if (_btst(DEBUG_MODE))
+            printf("TX timestamp polling timeout after %d * 100us\n", TX_READ_TIMESTAMP_TIMO);
+    }
 
     return ret;
 }
@@ -76,9 +85,15 @@ tx_timestamping(lport_t *lport)
 
     send_packets(lport->pid, lport->qid, &m, 1);
 
-    if (_btst(HW_TIMESTAMP))
-        if (poll_tx_timestamp(lport->pid, &lport->tx_timestamp))
-            printf("Failed to get TX timestamp on port %u\n", lport->pid);
+    if (_btst(HW_TIMESTAMP)) {
+        int ret = poll_tx_timestamp(lport->pid, &lport->tx_timestamp, &lport->other_stats);
+        if (ret != 0) {
+            // Keep previous timestamp on failure
+            if (_btst(DEBUG_MODE))
+                printf("Failed to get TX timestamp on port %u: %s\n", lport->pid, 
+                       rte_strerror(-ret));
+        }
+    }
 
     return 0;
 }
@@ -147,20 +162,39 @@ rx_timestamping(lport_t *lport)
                     uint64_t rx_timestamp =
                         *RTE_MBUF_DYNFIELD(pkt, pinfo->rx_timestamp_offset, uint64_t *);
 
-                    if (lport->tx_timestamp != UINT64_MAX) {
+                    // Validate RX timestamp is non-zero and reasonable
+                    if (rx_timestamp == 0) {
+                        lport->other_stats.rx_timestamp_errors++;
+                        if (_btst(DEBUG_MODE))
+                            printf("Warning: RX timestamp is zero\n");
+                    } else if (lport->tx_timestamp != UINT64_MAX && lport->tx_timestamp != 0) {
                         if (rx_timestamp >= lport->tx_timestamp) {
                             delta_ns = rx_timestamp - lport->tx_timestamp;
 
-                            // Update HW RTT statistics
-                            lport->other_stats.hw_rtt.count++;
-                            lport->other_stats.hw_rtt.sum_ns += delta_ns;
-                            if (delta_ns < lport->other_stats.hw_rtt.min_ns)
-                                lport->other_stats.hw_rtt.min_ns = delta_ns;
-                            if (delta_ns > lport->other_stats.hw_rtt.max_ns)
-                                lport->other_stats.hw_rtt.max_ns = delta_ns;
+                            // Sanity check: RTT should be reasonable (< 1 second)
+                            if (delta_ns < NSEC_PER_SEC) {
+                                // Update HW RTT statistics
+                                lport->other_stats.hw_rtt.count++;
+                                lport->other_stats.hw_rtt.sum_ns += delta_ns;
+                                if (delta_ns < lport->other_stats.hw_rtt.min_ns)
+                                    lport->other_stats.hw_rtt.min_ns = delta_ns;
+                                if (delta_ns > lport->other_stats.hw_rtt.max_ns)
+                                    lport->other_stats.hw_rtt.max_ns = delta_ns;
+                            } else {
+                                lport->other_stats.hw_rtt_invalid++;
+                                if (_btst(DEBUG_MODE))
+                                    printf("Warning: HW RTT too large: %'" PRIu64 " ns\n", delta_ns);
+                            }
+                        } else {
+                            lport->other_stats.rx_timestamp_errors++;
+                            if (_btst(DEBUG_MODE))
+                                printf("Warning: RX timestamp < TX timestamp\n");
                         }
-                    } else
+                    } else if (_btst(DEBUG_MODE) && (lport->other_stats.total_pkts.rx % 1000 == 0)) {
                         printf("No valid TX timestamp to calculate HW RTT\n");
+                    }
+                } else {
+                    lport->other_stats.rx_no_timestamp++;
                 }
             }
 
@@ -195,6 +229,7 @@ rxtx_routine(void *arg __rte_unused)
     printf("Starting RX/TX on port %u on lcore %u\n", pid, rte_lcore_id());
     lport->pid = pid;
     lport->qid = 0;
+    lport->tx_timestamp = UINT64_MAX;  // Initialize to invalid value
     if (port_init(lport) < 0) {
         printf("Cannot init lport %u:%u\n", pid, lport->qid);
         goto leave;

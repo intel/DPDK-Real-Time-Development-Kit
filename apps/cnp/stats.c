@@ -106,19 +106,6 @@ print_total_packets(void)
 }
 
 static inline void
-print_rx_packets(void)
-{
-    lport_t *lport = &pinfo->lports[0];
-    uint64_t rx_delta, rx, tx;
-
-    rx       = lport->other_stats.total_pkts.rx;
-    tx       = lport->other_stats.total_pkts.tx;
-    rx_delta = (tx > rx) ? tx - rx : rx - tx;
-
-    print_3_numbers("Mirror Rx/Tx/Delta Packets", rx, tx, rx_delta);
-}
-
-static inline void
 print_rxtx_pps(void)
 {
     lport_t *lport = &pinfo->lports[0];
@@ -187,11 +174,15 @@ print_stats(void)
     print_rxtx_pps();
 	print_min_avg_max(&lport->other_stats.rtt, "SW RTT");
 	print_min_avg_max(&lport->other_stats.hw_rtt, "HW RTT");
-    print_rx_packets();
     print_total_packets();
     print_errors();
-    print_number("No Mbufs", lport->other_stats.no_mbufs);
-    print_number("Many Rx", lport->other_stats.many_rx);
+    if (_btst(HW_TIMESTAMP)) {
+        print_number("TX TS Errors", lport->other_stats.tx_timestamp_errors);
+        print_number("TX TS Timeouts", lport->other_stats.tx_timestamp_timeouts);
+        print_number("RX TS Errors", lport->other_stats.rx_timestamp_errors);
+        print_number("RX No TS Flag", lport->other_stats.rx_no_timestamp);
+        print_number("HW RTT Invalid", lport->other_stats.hw_rtt_invalid);
+    }
 
     rte_memcpy(&lport->stats_prev, &lport->stats, sizeof(struct rte_eth_stats));
 

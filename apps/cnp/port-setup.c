@@ -175,15 +175,29 @@ port_init(lport_t *lport)
         int offset    = 0;
         uint64_t flag = 0;
 
-        if ((retval = rte_eth_timesync_enable(pid)) != 0)
-            rte_exit(EXIT_FAILURE, "rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
-
-        retval = rte_mbuf_dyn_rx_timestamp_register(&offset, &flag);
-        if (retval < 0)
-            rte_exit(EXIT_FAILURE, "Failed to register Rx timestamp dynamic field/flag: %s\n",
-                     rte_strerror(-retval));
-        pinfo->rx_timestamp_offset = offset;
-        pinfo->rx_timestamp_flag   = flag;
+        // Check if hardware supports timestamping
+        if (!(dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP)) {
+            printf("Warning: Port %u does not support RX hardware timestamping\n", pid);
+            _bclr(HW_TIMESTAMP);
+        } else {
+            if ((retval = rte_eth_timesync_enable(pid)) != 0) {
+                printf("Warning: rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
+                printf("Continuing without hardware timestamping\n");
+                _bclr(HW_TIMESTAMP);
+            } else {
+                retval = rte_mbuf_dyn_rx_timestamp_register(&offset, &flag);
+                if (retval < 0) {
+                    printf("Warning: Failed to register Rx timestamp: %s\n",
+                           rte_strerror(-retval));
+                    _bclr(HW_TIMESTAMP);
+                } else {
+                    pinfo->rx_timestamp_offset = offset;
+                    pinfo->rx_timestamp_flag   = flag;
+                    printf("Hardware timestamping enabled on port %u (offset=%d, flag=0x%lx)\n",
+                           pid, offset, flag);
+                }
+            }
+        }
     }
 
     return 0;

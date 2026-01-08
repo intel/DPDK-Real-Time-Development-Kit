@@ -35,6 +35,11 @@ typedef struct stats_s {
     uint64_t rx_unknown_frames;         // Number of unknown Rx frames
     uint64_t rx_no_probe_frames;        // Number of Rx frames without probe data
     uint64_t tx_frame_errors;           // Number of Tx Error frames
+    uint64_t tx_timestamp_errors;       // TX timestamp read errors
+    uint64_t tx_timestamp_timeouts;     // TX timestamp read timeouts
+    uint64_t rx_timestamp_errors;       // RX timestamp validation errors
+    uint64_t rx_no_timestamp;           // RX packets without timestamp flag
+    uint64_t hw_rtt_invalid;            // Invalid HW RTT measurements (too large)
     min_avg_max_t rtt;                  // Round Trip Time statistics
     min_avg_max_t hw_rtt;               // Hardware Round Trip Time statistics
 } stats_t;
