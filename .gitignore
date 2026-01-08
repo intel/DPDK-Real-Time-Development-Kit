@@ -1,5 +1,6 @@
 # ignore hidden files
-.*
+#.*
+.vscode
 # except the tracked ones and derivatives
 !.ci/
 !.github/
