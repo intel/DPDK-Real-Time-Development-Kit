@@ -12,13 +12,14 @@
 #include <rte_hexdump.h>
 #include <unistd.h>
 
-#define TX_READ_TIMESTAMP_TIMO 10       // 10 * 100us timeout (increased for better NIC compatibility)
+#define TX_READ_TIMESTAMP_TIMO \
+    100        // 100 * 10us timeout (increased for better NIC compatibility)
 
 static int
 poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
 {
     struct timespec timestamp = {0};
-    int timo = TX_READ_TIMESTAMP_TIMO;
+    int timo                  = TX_READ_TIMESTAMP_TIMO;
     int ret;
 
     do {
@@ -32,7 +33,7 @@ poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
         } else if (ret == 0) {        // Success
             *tx_timestamp = ts_to_ns(&timestamp);
             if (_btst(DEBUG_MODE))
-                printf("Got TX timespec: %'" PRIu64 " sec, %'" PRIu64 " ns\n", 
+                printf("Got TX timespec: %'" PRIu64 " sec, %'" PRIu64 " ns\n",
                        (uint64_t)timestamp.tv_sec, (uint64_t)timestamp.tv_nsec);
             break;
         }
@@ -43,7 +44,7 @@ poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
     if (ret == -EAGAIN) {
         stats->tx_timestamp_timeouts++;
         if (_btst(DEBUG_MODE))
-            printf("TX timestamp polling timeout after %d * 100us\n", TX_READ_TIMESTAMP_TIMO);
+            printf("TX timestamp polling timeout after %d * 10us\n", TX_READ_TIMESTAMP_TIMO);
     }
 
     return ret;
@@ -90,7 +91,7 @@ tx_timestamping(lport_t *lport)
         if (ret != 0) {
             // Keep previous timestamp on failure
             if (_btst(DEBUG_MODE))
-                printf("Failed to get TX timestamp on port %u: %s\n", lport->pid, 
+                printf("Failed to get TX timestamp on port %u: %s\n", lport->pid,
                        rte_strerror(-ret));
         }
     }
@@ -183,14 +184,16 @@ rx_timestamping(lport_t *lport)
                             } else {
                                 lport->other_stats.hw_rtt_invalid++;
                                 if (_btst(DEBUG_MODE))
-                                    printf("Warning: HW RTT too large: %'" PRIu64 " ns\n", delta_ns);
+                                    printf("Warning: HW RTT too large: %'" PRIu64 " ns\n",
+                                           delta_ns);
                             }
                         } else {
                             lport->other_stats.rx_timestamp_errors++;
                             if (_btst(DEBUG_MODE))
                                 printf("Warning: RX timestamp < TX timestamp\n");
                         }
-                    } else if (_btst(DEBUG_MODE) && (lport->other_stats.total_pkts.rx % 1000 == 0)) {
+                    } else if (_btst(DEBUG_MODE) &&
+                               (lport->other_stats.total_pkts.rx % 1000 == 0)) {
                         printf("No valid TX timestamp to calculate HW RTT\n");
                     }
                 } else {
@@ -227,9 +230,9 @@ rxtx_routine(void *arg __rte_unused)
     uint64_t curr_ns     = 0;
 
     printf("Starting RX/TX on port %u on lcore %u\n", pid, rte_lcore_id());
-    lport->pid = pid;
-    lport->qid = 0;
-    lport->tx_timestamp = UINT64_MAX;  // Initialize to invalid value
+    lport->pid          = pid;
+    lport->qid          = 0;
+    lport->tx_timestamp = UINT64_MAX;        // Initialize to invalid value
     if (port_init(lport) < 0) {
         printf("Cannot init lport %u:%u\n", pid, lport->qid);
         goto leave;

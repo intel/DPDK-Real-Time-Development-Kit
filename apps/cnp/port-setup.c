@@ -187,8 +187,7 @@ port_init(lport_t *lport)
             } else {
                 retval = rte_mbuf_dyn_rx_timestamp_register(&offset, &flag);
                 if (retval < 0) {
-                    printf("Warning: Failed to register Rx timestamp: %s\n",
-                           rte_strerror(-retval));
+                    printf("Warning: Failed to register Rx timestamp: %s\n", rte_strerror(-retval));
                     _bclr(HW_TIMESTAMP);
                 } else {
                     pinfo->rx_timestamp_offset = offset;

@@ -117,10 +117,11 @@ parse_args(int argc, char **argv)
             _bset(HW_TIMESTAMP);
             printf(">> Hardware RX IEEE1588 Timestamping Enabled\n");
             break;
-		case 'S':        // Software timestamping
-			printf(">> Software Timestamping Selected (No Effect in this version)\n");
-			_bset(SW_TIMESTAMP); // For now, enable hardware timestamping as software timestamping is not implemented
-			break;
+        case 'S':        // Software timestamping
+            printf(">> Software Timestamping Selected (No Effect in this version)\n");
+            _bset(SW_TIMESTAMP);        // For now, enable hardware timestamping as software
+                                        // timestamping is not implemented
+            break;
         case 'h':
             print_app_usage(prgname);
             exit(0);

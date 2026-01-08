@@ -19,9 +19,9 @@ reset_stats(void)
 
     memset(&lport->stats, 0, sizeof(lport->stats));
     memset(&lport->stats_prev, 0, sizeof(lport->stats_prev));
-	memset(&lport->other_stats, 0, sizeof(lport->other_stats));
-	lport->other_stats.rtt.min_ns = 1000000UL;
-	lport->other_stats.hw_rtt.min_ns = 1000000UL;
+    memset(&lport->other_stats, 0, sizeof(lport->other_stats));
+    lport->other_stats.rtt.min_ns    = 1000000UL;
+    lport->other_stats.hw_rtt.min_ns = 1000000UL;
 }
 
 static inline void
@@ -140,14 +140,14 @@ print_stats(void)
         reset_stats();
     }
 
-    printf("%c: %s, TX Interval: %'lu ns, ", twirl[toggle++ % 4], (pinfo->client_mode) ? "Client Mode" : "Server Mode",
-           pinfo->tx_interval_ns);
+    printf("%c: %s, TX Interval: %'lu ns, ", twirl[toggle++ % 4],
+           (pinfo->client_mode) ? "Client Mode" : "Server Mode", pinfo->tx_interval_ns);
     printf("Packet Length: %'u\n", pinfo->pkt_length + FCS_SIZE);
 
     printf("   Modes: ");
     printf("%sPromiscuous%s ", _btst(PROMISCUOUS) ? "\033[32m" : "\033[31m", "\033[0m");
-	printf("%sHW-TMST%s ", _btst(HW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
-	printf("%sSW-TMST%s ", _btst(SW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
+    printf("%sHW-TMST%s ", _btst(HW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
+    printf("%sSW-TMST%s ", _btst(SW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
     printf("\n");
     printf("   MAC: ");
     print_mac(DST_MAC);
@@ -155,25 +155,25 @@ print_stats(void)
     print_mac(SRC_MAC);
     printf("\n");
 
-	// convert Mbps to Gbps
+    // convert Mbps to Gbps
     double link_speed = (double)(lport->link.link_speed * 1000000UL);
     // number bits per packet
     double num_bpp = ((double)((pinfo->pkt_length + FCS_SIZE) + 20) * 8.0);
     // time per burst in nanoseconds
     double wire_time_ns = ((num_bpp / link_speed) * NSEC_PER_SEC);
-	double total_pps = link_speed / num_bpp;
-	double pps = (NSEC_PER_SEC / pinfo->tx_interval_ns);
+    double total_pps    = link_speed / num_bpp;
+    double pps          = (NSEC_PER_SEC / pinfo->tx_interval_ns);
 
-    printf("   Wire Time:%'.2f ns, RTT:%'.2f ns, bits %'.0f,TotalPPS:%'.2f PPS:%'.0f\n", wire_time_ns,
-           wire_time_ns * 2.0, num_bpp, total_pps, pps);
+    printf("   Wire Time:%'.2f ns, RTT:%'.2f ns, bits %'.0f,TotalPPS:%'.2f PPS:%'.0f\n",
+           wire_time_ns, wire_time_ns * 2.0, num_bpp, total_pps, pps);
     printf("\n");
 
     rte_eth_stats_get(lport->pid, &lport->stats);
 
     print_link();
     print_rxtx_pps();
-	print_min_avg_max(&lport->other_stats.rtt, "SW RTT");
-	print_min_avg_max(&lport->other_stats.hw_rtt, "HW RTT");
+    print_min_avg_max(&lport->other_stats.rtt, "SW RTT");
+    print_min_avg_max(&lport->other_stats.hw_rtt, "HW RTT");
     print_total_packets();
     print_errors();
     if (_btst(HW_TIMESTAMP)) {

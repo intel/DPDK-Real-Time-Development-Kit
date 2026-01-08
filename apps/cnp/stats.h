@@ -26,22 +26,22 @@ typedef struct {
 
 // Values in nanoseconds unless otherwise specified
 typedef struct stats_s {
-    pkt_count_t total_pkts;             // Total Rx/Tx reference packets
-    uint64_t rx_pps;                    // Number of packets per second
-    uint64_t tx_pps;                    // Number of packets per second
-    uint64_t no_mbufs;                  // No mbufs available
-	uint64_t many_rx;                   // Number of times more than 1 packet received in burst
-    uint64_t rx_frame_errors;           // Number of Rx Error frames
-    uint64_t rx_unknown_frames;         // Number of unknown Rx frames
-    uint64_t rx_no_probe_frames;        // Number of Rx frames without probe data
-    uint64_t tx_frame_errors;           // Number of Tx Error frames
-    uint64_t tx_timestamp_errors;       // TX timestamp read errors
-    uint64_t tx_timestamp_timeouts;     // TX timestamp read timeouts
-    uint64_t rx_timestamp_errors;       // RX timestamp validation errors
-    uint64_t rx_no_timestamp;           // RX packets without timestamp flag
-    uint64_t hw_rtt_invalid;            // Invalid HW RTT measurements (too large)
-    min_avg_max_t rtt;                  // Round Trip Time statistics
-    min_avg_max_t hw_rtt;               // Hardware Round Trip Time statistics
+    pkt_count_t total_pkts;                // Total Rx/Tx reference packets
+    uint64_t rx_pps;                       // Number of packets per second
+    uint64_t tx_pps;                       // Number of packets per second
+    uint64_t no_mbufs;                     // No mbufs available
+    uint64_t many_rx;                      // Number of times more than 1 packet received in burst
+    uint64_t rx_frame_errors;              // Number of Rx Error frames
+    uint64_t rx_unknown_frames;            // Number of unknown Rx frames
+    uint64_t rx_no_probe_frames;           // Number of Rx frames without probe data
+    uint64_t tx_frame_errors;              // Number of Tx Error frames
+    uint64_t tx_timestamp_errors;          // TX timestamp read errors
+    uint64_t tx_timestamp_timeouts;        // TX timestamp read timeouts
+    uint64_t rx_timestamp_errors;          // RX timestamp validation errors
+    uint64_t rx_no_timestamp;              // RX packets without timestamp flag
+    uint64_t hw_rtt_invalid;               // Invalid HW RTT measurements (too large)
+    min_avg_max_t rtt;                     // Round Trip Time statistics
+    min_avg_max_t hw_rtt;                  // Hardware Round Trip Time statistics
 } stats_t;
 
 void print_stats(void);
