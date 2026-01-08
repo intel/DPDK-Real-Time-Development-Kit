@@ -26,7 +26,8 @@ signal_handler(int signum)
 int
 main(int argc, char *argv[])
 {
-    uint16_t nb_ports, nb_lcores, port_id;
+    uint16_t nb_ports, nb_lcores;
+    uint16_t port_id;
     int ret;
 
     signal(SIGINT, signal_handler);
@@ -92,9 +93,6 @@ main(int argc, char *argv[])
 
         rte_eth_dev_close(port_id);
     }
-
-    /* clean up the EAL */
-    rte_eal_cleanup();
 
     return 0;
 }

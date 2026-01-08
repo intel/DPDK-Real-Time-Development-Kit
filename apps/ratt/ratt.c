@@ -119,8 +119,5 @@ main(int argc, char *argv[])
     rte_free(lcore->rx_mbufs);
     rte_free(lcore->tx_mbufs);
 
-    /* clean up the EAL */
-    rte_eal_cleanup();
-
     return 0;
 }
