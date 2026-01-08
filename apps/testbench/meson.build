@@ -37,9 +37,12 @@ endif
 
 # Add pflow PMD library explicitly from local DPDK installation
 # Link directly to the shared library file
-dpdk_pmd_lib = meson.project_source_root() + '/external/install/lib/x86_64-linux-gnu/librte_net_pflow.so'
+dpdk_lib_dir = meson.project_source_root() + '/external/install/lib/x86_64-linux-gnu'
+dpdk_pmd_lib = dpdk_lib_dir + '/librte_net_pflow.so'
+dpdk_bus_pci_lib = dpdk_lib_dir + '/librte_bus_pci.so'
+dpdk_bus_vdev_lib = dpdk_lib_dir + '/librte_bus_vdev.so'
 pflow_dep = declare_dependency(
-    link_args: [dpdk_pmd_lib]
+    link_args: [dpdk_pmd_lib, dpdk_bus_pci_lib, dpdk_bus_vdev_lib]
 )
 tsn_tb_deps += pflow_dep
 
