@@ -146,7 +146,9 @@ print_stats(void)
 
     printf("   Modes: ");
     printf("%sPromiscuous%s ", _btst(PROMISCUOUS) ? "\033[32m" : "\033[31m", "\033[0m");
-    printf("%sHW-TMST%s ", _btst(HW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
+    printf("%sRX-TMST%s ", _btst(HW_RX_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
+    printf("%sTX-TMST%s ", _btst(HW_TX_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
+    printf("%sLaunchTime%s ", _btst(HW_LAUNCH_TIME) ? "\033[32m" : "\033[31m", "\033[0m");
     printf("%sSW-TMST%s ", _btst(SW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
     printf("\n");
     printf("   MAC: ");
@@ -176,7 +178,7 @@ print_stats(void)
     print_min_avg_max(&lport->other_stats.hw_rtt, "HW RTT");
     print_total_packets();
     print_errors();
-    if (_btst(HW_TIMESTAMP)) {
+    if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
         print_number("TX TS Errors", lport->other_stats.tx_timestamp_errors);
         print_number("TX TS Timeouts", lport->other_stats.tx_timestamp_timeouts);
         print_number("RX TS Errors", lport->other_stats.rx_timestamp_errors);

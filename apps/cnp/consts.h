@@ -19,15 +19,17 @@
 #endif
 
 enum {
-    THE_MAGIC          = 0xbeef,             // Magic value for BEEF timestamp
-    DEFAULT_RING_SIZE  = 1024,               // Size of ring for each port
-    DEFAULT_MBUF_COUNT = (32 * 1024),        // Number of mbufs per port
-    DEFAULT_CACHE_SIZE = 128,                // Size of cache per pktmbuf pool
-    DEFAULT_PRIV_SIZE  = 0,                  // Size of private data per pktmbuf pool
-    DEFAULT_MBUF_SIZE  = 2048,               // Size of mbuf per packet
-    MIN_PKT_LENGTH     = 64,                 // Minimum packet length
-    MAX_PKT_LENGTH     = 1536,               // Maximum packet length
-    FCS_SIZE           = 4,                  // Size of FCS
-    DEFAULT_DELAY_SEC  = 2,                  // Default delay in seconds before Tx packets
-    USEC_PER_SEC       = (NSEC_PER_SEC / 1000UL),        // Number of microseconds in a second
+    THE_MAGIC           = 0xbeef,             // Magic value for BEEF timestamp
+    DEFAULT_RING_SIZE   = 1024,               // Size of ring for each port
+    DEFAULT_MBUF_COUNT  = (32 * 1024),        // Number of mbufs per port
+    DEFAULT_CACHE_SIZE  = 128,                // Size of cache per pktmbuf pool
+    DEFAULT_PRIV_SIZE   = 0,                  // Size of private data per pktmbuf pool
+    DEFAULT_MBUF_SIZE   = 2048,               // Size of mbuf per packet
+    MIN_PKT_LENGTH      = 64,                 // Minimum packet length
+    MAX_PKT_LENGTH      = 1536,               // Maximum packet length
+    NUM_RX_DESC_DEFAULT = 1024,               // Number default Rx descriptors
+    NUM_TX_DESC_DEFAULT = 1024,               // Number default Tx descriptors
+    FCS_SIZE            = 4,                  // Size of FCS
+    DEFAULT_DELAY_SEC   = 2,                  // Default delay in seconds before Tx packets
+    USEC_PER_SEC        = (NSEC_PER_SEC / 1000UL),        // Number of microseconds in a second
 };

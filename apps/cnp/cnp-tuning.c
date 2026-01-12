@@ -46,6 +46,8 @@ main(int argc, char *argv[])
     argc -= ret;
     argv += ret;
 
+    rte_spinlock_init(&pinfo->port_lock);
+
     // make sure we have at least 1 extra lcore for main loop processing for stats and keyboard
     nb_lcores = rte_lcore_count();
     if (nb_lcores < 2)
@@ -66,11 +68,12 @@ main(int argc, char *argv[])
 
     start_running();
 
+    printf("Main lcore is %u\n", rte_lcore_id());
+    fflush(stdout);
+
     /* Launch worker thread on worker lcores only */
     if (rte_eal_mp_remote_launch(rxtx_routine, NULL, SKIP_MAIN) < 0)
         rte_exit(EXIT_FAILURE, "Cannot launch lcores\n");
-
-    printf("Main lcore is %u\n", rte_lcore_id());
 
     sleep_sec(1);        // Give some time for worker lcores to start
 

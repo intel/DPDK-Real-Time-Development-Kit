@@ -31,6 +31,7 @@
 #include <rte_mbuf.h>
 #include <rte_common.h>
 #include <rte_malloc.h>
+#include <rte_spinlock.h>
 
 #include "consts.h"
 #include "stats.h"
@@ -56,8 +57,9 @@ typedef struct lport {
 
 typedef struct {
     rte_atomic32_t flags;                    // Flags for internal use
-    uint64_t rx_timestamp_flag;              // mbuf Rx timestamp flag
-    uint16_t rx_timestamp_offset;            // RX timestamp offset in mbuf dynamic fields
+    rte_spinlock_t port_lock;                // Port lock
+    uint64_t timestamp_flag;                 // mbuf Rx/Tx timestamp flag
+    uint16_t timestamp_offset;               // Rx/Tx timestamp offset in mbuf dynamic fields
     uint16_t pkt_length;                     // Length of packet minus the FCS
     uint16_t lport_idx;                      // Next lport index to use
     uint16_t client_mode;                    // Client mode enabled flag
@@ -77,7 +79,9 @@ enum {                           // Bit values for info_t.flags field
     APP_RUNNING_FLAG = 0,        // Main Running flag
     TTY_IS_INITED_FLAG,          // TTY has been inited flag
     PROMISCUOUS_FLAG,            // Port promiscuous enabled flag
-    HW_TIMESTAMP_FLAG,           // Hardware Rx/Tx timestamping enabled flag
+    HW_RX_TIMESTAMP_FLAG,        // Hardware Rx/Tx timestamping enabled flag
+    HW_LAUNCH_TIME_FLAG,         // Send on Timestamp enable flag (LaunchTime)
+    HW_TX_TIMESTAMP_FLAG,        // Hardware Tx Timestamping enable flag (IEEE1588)
     SW_TIMESTAMP_FLAG,           // Software timestamping enabled flag
     DEBUG_MODE_FLAG,             // Debug mode enabled flag
     CLEAR_SCREEN_FLAG,           // Clear the screen flag

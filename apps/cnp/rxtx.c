@@ -25,6 +25,7 @@ poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
     do {
         ret = rte_eth_timesync_read_tx_timestamp(port_id, &timestamp);
         if (ret == -ENOTSUP) {
+            printf("Port %u: Read Timestamp not supported by hardware\n", port_id);
             // Hardware doesn't support timestamping
             if (_btst(DEBUG_MODE))
                 printf("TX timestamp not supported by hardware\n");
@@ -33,15 +34,14 @@ poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
         } else if (ret == 0) {        // Success
             *tx_timestamp = ts_to_ns(&timestamp);
             if (_btst(DEBUG_MODE))
-                printf("Got TX timespec: %'" PRIu64 " sec, %'" PRIu64 " ns\n",
-                       (uint64_t)timestamp.tv_sec, (uint64_t)timestamp.tv_nsec);
+                printf("Got TX timespec: %'" PRIu64 " sec, %'" PRIu64 " ns, ret %d\n",
+                       (uint64_t)timestamp.tv_sec, (uint64_t)timestamp.tv_nsec, ret);
             break;
         }
-        stats->tx_timestamp_timeouts++;
         rte_pause();
     } while (--timo);
 
-    if (ret == -EAGAIN) {
+    if (ret == -EAGAIN || timo == 0) {
         stats->tx_timestamp_timeouts++;
         if (_btst(DEBUG_MODE))
             printf("TX timestamp polling timeout after %d * 10us\n", TX_READ_TIMESTAMP_TIMO);
@@ -80,13 +80,21 @@ tx_timestamping(lport_t *lport)
         payload->T1              = rte_cpu_to_be_64(clock_get_ns());        // Example timestamp
     }
 
+    m->ol_flags = 0;
+
     // Set TX timestamp flag if enabled
-    if (_btst(HW_TIMESTAMP))
+    if (_btst(HW_LAUNCH_TIME)) {
+        uint64_t port_ns = port_clock_get_ns(lport->pid);        // Get port clock for launch time
+        uint64_t packet_interval_ns = NSEC_PER_SEC / 60;         // Example interval
+
+        m->ol_flags |= pinfo->timestamp_flag;
         m->ol_flags |= RTE_MBUF_F_TX_IEEE1588_TMST;
+        *RTE_MBUF_DYNFIELD(m, pinfo->timestamp_offset, uint64_t *) = port_ns + packet_interval_ns;
+    }
 
     send_packets(lport->pid, lport->qid, &m, 1);
 
-    if (_btst(HW_TIMESTAMP)) {
+    if (_btst(HW_TX_TIMESTAMP)) {
         int ret = poll_tx_timestamp(lport->pid, &lport->tx_timestamp, &lport->other_stats);
         if (ret != 0) {
             // Keep previous timestamp on failure
@@ -157,11 +165,11 @@ rx_timestamping(lport_t *lport)
                     lport->other_stats.rtt.max_ns = delta_ns;
             }
 
-            if (_btst(HW_TIMESTAMP)) {
+            if (_btst(HW_RX_TIMESTAMP)) {
                 // Check only the first packet for timestamp data else use system clock
-                if (pkt->ol_flags & pinfo->rx_timestamp_flag) {
+                if (pkt->ol_flags & pinfo->timestamp_flag) {
                     uint64_t rx_timestamp =
-                        *RTE_MBUF_DYNFIELD(pkt, pinfo->rx_timestamp_offset, uint64_t *);
+                        *RTE_MBUF_DYNFIELD(pkt, pinfo->timestamp_offset, uint64_t *);
 
                     // Validate RX timestamp is non-zero and reasonable
                     if (rx_timestamp == 0) {
