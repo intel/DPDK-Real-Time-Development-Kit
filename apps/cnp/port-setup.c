@@ -97,7 +97,7 @@ port_init(lport_t *lport)
     } else {
         lport->rx_timestamp_offset = offset;
         lport->rx_timestamp_flag   = flag;
-        printf("    Rx Hardware timestamping enabled: (offset=%d, flag=0x%lx)\n", offset, flag);
+        printf("    Rx Hardware timestamping: (offset=%d, flag=0x%lx)\n", offset, flag);
     }
     retval = rte_mbuf_dyn_tx_timestamp_register(&offset, &flag);
     if (retval < 0) {
@@ -107,7 +107,7 @@ port_init(lport_t *lport)
     } else {
         lport->tx_timestamp_offset = offset;
         lport->tx_timestamp_flag   = flag;
-        printf("    Tx Hardware timestamping enabled: (offset=%d, flag=0x%lx)\n", offset, flag);
+        printf("    Tx Hardware timestamping: (offset=%d, flag=0x%lx)\n", offset, flag);
     }
     if (dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP) {
         if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
@@ -245,17 +245,18 @@ port_init(lport_t *lport)
     if ((retval = rte_eth_dev_start(pid)) < 0)
         goto err_exit;
 
-    if ((retval = rte_eth_timesync_enable(pid)) != 0) {
-        printf("Warning: rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
-        printf("Continuing without Rx/Tx hardware timestamping\n");
-        _bclr(HW_RX_TIMESTAMP);
-        _bclr(HW_TX_TIMESTAMP);
+    if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
+        if ((retval = rte_eth_timesync_enable(pid)) != 0) {
+            printf("Warning: rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
+            printf("Continuing without Rx/Tx hardware timestamping\n");
+            _bclr(HW_RX_TIMESTAMP);
+            _bclr(HW_TX_TIMESTAMP);
+        }
+        if (_btst(HW_RX_TIMESTAMP))
+            printf("Rx Hardware timestamping enabled on port %u\n", pid);
+        if (_btst(HW_TX_TIMESTAMP))
+            printf("Tx Hardware timestamping enabled on port %u\n", pid);
     }
-    if (_btst(HW_RX_TIMESTAMP))
-        printf("Rx Hardware timestamping enabled on port %u\n", pid);
-    if (_btst(HW_TX_TIMESTAMP))
-        printf("Tx Hardware timestamping enabled on port %u\n", pid);
-
     /* Enable RX in promiscuous mode for the Ethernet device. */
     if (_btst(PROMISCUOUS)) {
         retval = rte_eth_promiscuous_enable(pid);
