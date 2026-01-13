@@ -21,7 +21,8 @@ reset_stats(void)
     memset(&lport->stats_prev, 0, sizeof(lport->stats_prev));
     memset(&lport->other_stats, 0, sizeof(lport->other_stats));
     lport->other_stats.rtt.min_ns    = 1000000UL;
-    lport->other_stats.hw_rtt.min_ns = 1000000UL;
+    lport->other_stats.hw_rx_rtt.min_ns = 1000000UL;
+    lport->other_stats.hw_tx_rtt.min_ns = 1000000UL;
 }
 
 static inline void
@@ -175,7 +176,8 @@ print_stats(void)
     print_link();
     print_rxtx_pps();
     print_min_avg_max(&lport->other_stats.rtt, "SW RTT");
-    print_min_avg_max(&lport->other_stats.hw_rtt, "HW RTT");
+    print_min_avg_max(&lport->other_stats.hw_rx_rtt, "HW Rx RTT");
+    print_min_avg_max(&lport->other_stats.hw_tx_rtt, "HW Tx RTT");
     print_total_packets();
     print_errors();
     if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
@@ -183,7 +185,8 @@ print_stats(void)
         print_number("TX TS Timeouts", lport->other_stats.tx_timestamp_timeouts);
         print_number("RX TS Errors", lport->other_stats.rx_timestamp_errors);
         print_number("RX No TS Flag", lport->other_stats.rx_no_timestamp);
-        print_number("HW RTT Invalid", lport->other_stats.hw_rtt_invalid);
+        print_number("HW Rx RTT Invalid", lport->other_stats.hw_rx_rtt_invalid);
+        print_number("HW Tx RTT Invalid", lport->other_stats.hw_tx_rtt_invalid);
     }
 
     rte_memcpy(&lport->stats_prev, &lport->stats, sizeof(struct rte_eth_stats));

@@ -39,6 +39,10 @@
 #define RX_BURST_SIZE 16
 
 typedef struct lport {
+    uint64_t rx_timestamp_flag;                      // mbuf Rx timestamp flag
+    uint16_t rx_timestamp_offset;                    // Rx timestamp offset in mbuf dynamic fields
+    uint64_t tx_timestamp_flag;                      // mbuf Tx timestamp flag
+    uint16_t tx_timestamp_offset;                    // Tx timestamp offset in mbuf dynamic fields
     struct rte_mbuf *rx_mbufs[RX_BURST_SIZE];        // Array of RX mbufs
     struct rte_mbuf *tx_mbufs[RX_BURST_SIZE];        // Array of TX mbufs
     struct rte_ether_addr src_mac;                   // Source MAC address
@@ -52,14 +56,14 @@ typedef struct lport {
     struct rte_eth_stats stats;                      // Port Statistics
     struct rte_eth_stats stats_prev;                 // Previous port statistics
     uint64_t tx_timestamp;                           // Last TX timestamp (UINT64_MAX = invalid)
+    uint64_t prev_rx_timestamp;                      // Previous RX timestamp
+    uint64_t prev_tx_timestamp;                      // Previous TX timestamp
     stats_t other_stats;                             // Other statistics
 } lport_t;
 
 typedef struct {
     rte_atomic32_t flags;                    // Flags for internal use
     rte_spinlock_t port_lock;                // Port lock
-    uint64_t timestamp_flag;                 // mbuf Rx/Tx timestamp flag
-    uint16_t timestamp_offset;               // Rx/Tx timestamp offset in mbuf dynamic fields
     uint16_t pkt_length;                     // Length of packet minus the FCS
     uint16_t lport_idx;                      // Next lport index to use
     uint16_t client_mode;                    // Client mode enabled flag

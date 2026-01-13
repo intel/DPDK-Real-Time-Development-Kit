@@ -26,28 +26,33 @@ port_init(lport_t *lport)
     uint16_t nb_txd          = NUM_TX_DESC_DEFAULT;
     int retval;
     uint16_t pid, qid;
-    int socket_id;
+    int offset    = 0;
+    uint64_t flag = 0;
 
     rte_spinlock_lock(&pinfo->port_lock);
 
     pid = lport->pid;
     qid = lport->qid;
+    printf("Initializing lport %u:%u...\n", pid, qid);
+
     if (!rte_eth_dev_is_valid_port(pid))
         rte_exit(EXIT_FAILURE, "Invalid port %u\n", pid);
 
-    printf("Initializing port %u:%u...\n", pid, qid);
     retval = rte_eth_dev_info_get(pid, &dev_info);
     if (retval != 0) {
-        printf("Error during getting device (port %u:%u) info: %s\n", pid, qid, strerror(-retval));
+        printf("Error during getting device port %u info: %s\n", pid, strerror(-retval));
         goto err_exit;
     }
-    socket_id = rte_eth_dev_socket_id(pid);
 
-    printf("Port %u information:\n", pid);
+    printf("Port information:\n");
     memset(&port_conf, 0, sizeof(struct rte_eth_conf));
+
     port_conf.rx_adv_conf.rss_conf.rss_key = NULL;
     port_conf.rx_adv_conf.rss_conf.rss_hf &= dev_info.flow_type_rss_offloads;
 
+    printf("  max_rx_pktlen: %u\n", dev_info.max_rx_pktlen);
+    printf("  max_rx_queues: %u, max_tx_queues: %u\n", dev_info.max_rx_queues,
+           dev_info.max_tx_queues);
     if (dev_info.max_rx_queues == 1)
         port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_NONE;
     else
@@ -55,78 +60,82 @@ port_init(lport_t *lport)
 
     port_conf.txmode.mq_mode = RTE_ETH_MQ_TX_NONE;
 
-    printf("  max_rx_queues: %u, max_tx_queues: %u\n", dev_info.max_rx_queues,
-           dev_info.max_tx_queues);
-    printf("  max_rx_pktlen: %u\n", dev_info.max_rx_pktlen);
-    printf("  max_lro_pkt_size: %u\n", dev_info.max_lro_pkt_size);
-
     // Adjust max_lro_pkt_size if needed
-    if (dev_info.max_lro_pkt_size == 0 || dev_info.max_lro_pkt_size >= RTE_ETHER_MAX_LEN)
+    if (dev_info.max_lro_pkt_size > RTE_ETHER_MAX_LEN) {
+        printf("  Adjusting max_lro_pkt_size from %u to %u\n", dev_info.max_lro_pkt_size,
+               RTE_ETHER_MAX_LEN);
         port_conf.rxmode.max_lro_pkt_size = RTE_ETHER_MAX_LEN;
+    }
+    printf("  max_lro_pkt_size: %u\n", port_conf.rxmode.max_lro_pkt_size);
 
     printf("  Offload capabilities:\n");
+    printf("    Max VFS: %u\n", dev_info.max_vfs);
     if (dev_info.max_vfs) {
-        printf("    Max VFS: %u\n", dev_info.max_vfs);
-        if (port_conf.rx_adv_conf.rss_conf.rss_hf != 0)
+        if (port_conf.rx_adv_conf.rss_conf.rss_hf != 0) {
+            printf("    Supports RSS with VMDQ, enable\n");
             port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_VMDQ_RSS;
+        }
     }
+
+    printf("    Device flags: 0x%08x\n", *dev_info.dev_flags);
+
     if (*dev_info.dev_flags & RTE_ETH_DEV_INTR_LSC) {
         printf("    Supports Link Status Change interrupts\n");
         port_conf.intr_conf.lsc = 0;        // Disable for now
     }
 
     if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE) {
-        printf("    Supports TX mbuf fast free offload, enable\n");
+        printf("    Supports TX mbuf fast free, enabled\n");
         port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
     }
 
-    if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
-        if (dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP) {
-            int offset    = 0;
-            uint64_t flag = 0;
-
-            port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
-
-            retval = rte_mbuf_dyn_rx_timestamp_register(&offset, &flag);
-            if (retval < 0) {
-                printf("    Warning: Failed to register Rx timestamp: %s\n", rte_strerror(-retval));
-                _bclr(HW_RX_TIMESTAMP);
-            } else {
-                pinfo->timestamp_offset = offset;
-                pinfo->timestamp_flag   = flag;
-                printf("    Hardware timestamping enabled: (offset=%d, flag=0x%lx)\n", offset,
-                       flag);
-            }
-        } else {
-            printf("    Warning: Port %u does not support RX hardware timestamping\n", pid);
-            _bclr(HW_RX_TIMESTAMP);
-        }
+    retval = rte_mbuf_dyn_rx_timestamp_register(&offset, &flag);
+    if (retval < 0) {
+        printf("    Warning: Failed to register Rx timestamp: %s\n", rte_strerror(-retval));
+        _bclr(HW_RX_TIMESTAMP);
+        _bclr(HW_TX_TIMESTAMP);
+    } else {
+        lport->rx_timestamp_offset = offset;
+        lport->rx_timestamp_flag   = flag;
+        printf("    Rx Hardware timestamping enabled: (offset=%d, flag=0x%lx)\n", offset, flag);
     }
-    if (_btst(HW_LAUNCH_TIME)) {
-        if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_SEND_ON_TIMESTAMP) {
-            int offset    = 0;
-            uint64_t flag = 0;
-
-            port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_SEND_ON_TIMESTAMP;
-
-            retval = rte_mbuf_dyn_tx_timestamp_register(&offset, &flag);
-            if (retval < 0) {
-                printf("    Warning: Failed to register Tx launchtime: %s\n",
-                       rte_strerror(-retval));
-                _bclr(HW_LAUNCH_TIME);
-            } else {
-                pinfo->timestamp_offset = offset;
-                pinfo->timestamp_flag   = flag;
-                printf("    Hardware Tx launchtime enabled: (offset=%d, flag=0x%lx)\n", offset,
-                       flag);
-            }
+    retval = rte_mbuf_dyn_tx_timestamp_register(&offset, &flag);
+    if (retval < 0) {
+        printf("    Warning: Failed to register Tx timestamp: %s\n", rte_strerror(-retval));
+        _bclr(HW_RX_TIMESTAMP);
+        _bclr(HW_TX_TIMESTAMP);
+    } else {
+        lport->tx_timestamp_offset = offset;
+        lport->tx_timestamp_flag   = flag;
+        printf("    Tx Hardware timestamping enabled: (offset=%d, flag=0x%lx)\n", offset, flag);
+    }
+    if (dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP) {
+        if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
+            printf("    Supports Rx hardware timestamping\n");
+            port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
         } else {
-            printf("    Warning: Port %u does not support TX launchtime\n", pid);
-            _bclr(HW_LAUNCH_TIME);
+            printf("    Warning: Port %u does not support Rx hardware timestamping\n", pid);
+            _bclr(HW_RX_TIMESTAMP);
+            _bclr(HW_TX_TIMESTAMP);
         }
+    } else {
+        printf("    Warning: Port %u does not support Rx hardware timestamping\n", pid);
+        _bclr(HW_RX_TIMESTAMP);
+        _bclr(HW_TX_TIMESTAMP);
+    }
+
+    if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_SEND_ON_TIMESTAMP) {
+        if (_btst(HW_LAUNCH_TIME)) {
+            printf("    Supports Tx launchtime or send on timestamp\n");
+            port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_SEND_ON_TIMESTAMP;
+        }
+    } else {
+        printf("    Warning: Port %u does not support Tx launchtime\n", pid);
+        _bclr(HW_LAUNCH_TIME);
     }
 
     printf("  Number of RX/TX queues: %u/%u\n", rx_queues, tx_queues);
+
     /* Configure the Ethernet device. */
     retval = rte_eth_dev_configure(pid, rx_queues, tx_queues, &port_conf);
     if (retval != 0)
@@ -168,10 +177,16 @@ port_init(lport_t *lport)
         goto err_exit;
     }
 
-    printf("  Rx Mempool: %s\n", lport->rx_mp->name);
-    printf("  Tx Mempool: %s\n", lport->tx_mp->name);
+    printf("  Rx Mempool: %s, count %u size %u\n", lport->rx_mp->name, lport->rx_mp->size,
+           lport->rx_mp->elt_size);
+    printf("  Tx Mempool: %s, count %u size %u\n", lport->tx_mp->name, lport->tx_mp->size,
+           lport->tx_mp->elt_size);
 
-    /* Allocate and set up 1 RX queue per Ethernet port. */
+    int sid = rte_eth_dev_socket_id(pid);
+    if (sid == SOCKET_ID_ANY)
+        sid = 0;
+    printf("  Using socket ID %d for allocations\n", sid);
+    /* Allocate and set up RX queue per Ethernet port. */
     for (uint16_t q = 0; q < rx_queues; q++) {
         struct rte_eth_rxconf rxconf;
 
@@ -181,22 +196,26 @@ port_init(lport_t *lport)
         rxconf.rx_thresh.wthresh = 0;
         rxconf.rx_thresh.hthresh = 0;
 
-        retval = rte_eth_rx_queue_setup(pid, q, nb_rxd, socket_id, &rxconf, lport->rx_mp);
+        printf("  RX queue %2u setup... offloads 0x%08lx\n", q, rxconf.offloads);
+
+        retval = rte_eth_rx_queue_setup(pid, q, nb_rxd, sid, &rxconf, lport->rx_mp);
         if (retval < 0)
             goto err_exit;
     }
 
-    /* Allocate and set up 1 TX queue per Ethernet port. */
+    /* Allocate and set up TX queue per Ethernet port. */
     for (uint16_t q = 0; q < tx_queues; q++) {
         struct rte_eth_txconf txconf;
 
         txconf                   = dev_info.default_txconf;
-        txconf.offloads          = port_conf.txmode.offloads | RTE_ETH_TX_OFFLOAD_SEND_ON_TIMESTAMP;
+        txconf.offloads          = port_conf.txmode.offloads;
         txconf.tx_thresh.pthresh = 0;
         txconf.tx_thresh.wthresh = 0;
         txconf.tx_thresh.hthresh = 0;
 
-        retval = rte_eth_tx_queue_setup(pid, q, nb_txd, socket_id, &txconf);
+        printf("  TX queue %2u setup... offloads 0x%08lx\n", q, txconf.offloads);
+
+        retval = rte_eth_tx_queue_setup(pid, q, nb_txd, sid, &txconf);
         if (retval < 0)
             goto err_exit;
     }
@@ -225,6 +244,18 @@ port_init(lport_t *lport)
     /* Start the Ethernet port. */
     if ((retval = rte_eth_dev_start(pid)) < 0)
         goto err_exit;
+
+    if ((retval = rte_eth_timesync_enable(pid)) != 0) {
+        printf("Warning: rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
+        printf("Continuing without Rx/Tx hardware timestamping\n");
+        _bclr(HW_RX_TIMESTAMP);
+        _bclr(HW_TX_TIMESTAMP);
+    }
+    if (_btst(HW_RX_TIMESTAMP))
+        printf("Rx Hardware timestamping enabled on port %u\n", pid);
+    if (_btst(HW_TX_TIMESTAMP))
+        printf("Tx Hardware timestamping enabled on port %u\n", pid);
+
     /* Enable RX in promiscuous mode for the Ethernet device. */
     if (_btst(PROMISCUOUS)) {
         retval = rte_eth_promiscuous_enable(pid);
@@ -232,16 +263,6 @@ port_init(lport_t *lport)
             printf("Promiscuous mode enable failed: %s\n", rte_strerror(-retval));
             goto err_exit;
         }
-    }
-
-    if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
-        if ((retval = rte_eth_timesync_enable(pid)) != 0) {
-            printf("Warning: rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
-            printf("Continuing without hardware timestamping\n");
-            _bclr(HW_RX_TIMESTAMP);
-            _bclr(HW_TX_TIMESTAMP);
-        } else
-            printf("Hardware timestamping enabled on port %u\n", pid);
     }
 
     return 0;

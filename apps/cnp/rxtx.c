@@ -87,9 +87,15 @@ tx_timestamping(lport_t *lport)
         uint64_t port_ns = port_clock_get_ns(lport->pid);        // Get port clock for launch time
         uint64_t packet_interval_ns = NSEC_PER_SEC / 60;         // Example interval
 
-        m->ol_flags |= pinfo->timestamp_flag;
+        m->ol_flags |= lport->tx_timestamp_flag;
         m->ol_flags |= RTE_MBUF_F_TX_IEEE1588_TMST;
-        *RTE_MBUF_DYNFIELD(m, pinfo->timestamp_offset, uint64_t *) = port_ns + packet_interval_ns;
+        *RTE_MBUF_DYNFIELD(m, lport->tx_timestamp_offset, uint64_t *) =
+            port_ns + packet_interval_ns;
+    }
+
+    if (_btst(HW_TX_TIMESTAMP)) {
+        // Initialize TX timestamp to invalid value
+        lport->tx_timestamp = UINT64_MAX;
     }
 
     send_packets(lport->pid, lport->qid, &m, 1);
@@ -114,7 +120,7 @@ rx_timestamping(lport_t *lport)
     struct rte_mbuf **tx_mbufs = lport->tx_mbufs;
     struct rte_ether_addr tmp;
     uint64_t T1, delta_ns;
-    uint16_t nb_rx, nb_tx;
+    uint16_t nb_rx = 0, nb_tx = 0;
 
     if ((nb_rx = rte_eth_rx_burst(lport->pid, lport->qid, rx_mbufs, RX_BURST_SIZE)) > 0) {
         struct rte_ether_hdr *eth_hdr;
@@ -123,7 +129,6 @@ rx_timestamping(lport_t *lport)
         if (nb_rx > 1)
             lport->other_stats.many_rx++;
 
-        nb_tx = 0;
         for (uint16_t i = 0; i < nb_rx; i++) {
             struct rte_mbuf *pkt = rx_mbufs[i];
 
@@ -166,49 +171,63 @@ rx_timestamping(lport_t *lport)
             }
 
             if (_btst(HW_RX_TIMESTAMP)) {
-                // Check only the first packet for timestamp data else use system clock
-                if (pkt->ol_flags & pinfo->timestamp_flag) {
+                // Check packet for RX timestamp flag
+                if (pkt->ol_flags & RTE_MBUF_F_RX_IEEE1588_TMST) {
                     uint64_t rx_timestamp =
-                        *RTE_MBUF_DYNFIELD(pkt, pinfo->timestamp_offset, uint64_t *);
+                        *RTE_MBUF_DYNFIELD(pkt, lport->rx_timestamp_offset, uint64_t *);
+
+                    if (lport->prev_rx_timestamp == 0)
+                        lport->prev_rx_timestamp = rx_timestamp;
 
                     // Validate RX timestamp is non-zero and reasonable
                     if (rx_timestamp == 0) {
                         lport->other_stats.rx_timestamp_errors++;
                         if (_btst(DEBUG_MODE))
                             printf("Warning: RX timestamp is zero\n");
-                    } else if (lport->tx_timestamp != UINT64_MAX && lport->tx_timestamp != 0) {
-                        if (rx_timestamp >= lport->tx_timestamp) {
-                            delta_ns = rx_timestamp - lport->tx_timestamp;
+                    } else {
+                        delta_ns = (rx_timestamp - lport->prev_rx_timestamp);
 
-                            // Sanity check: RTT should be reasonable (< 1 second)
-                            if (delta_ns < NSEC_PER_SEC) {
-                                // Update HW RTT statistics
-                                lport->other_stats.hw_rtt.count++;
-                                lport->other_stats.hw_rtt.sum_ns += delta_ns;
-                                if (delta_ns < lport->other_stats.hw_rtt.min_ns)
-                                    lport->other_stats.hw_rtt.min_ns = delta_ns;
-                                if (delta_ns > lport->other_stats.hw_rtt.max_ns)
-                                    lport->other_stats.hw_rtt.max_ns = delta_ns;
-                            } else {
-                                lport->other_stats.hw_rtt_invalid++;
-                                if (_btst(DEBUG_MODE))
-                                    printf("Warning: HW RTT too large: %'" PRIu64 " ns\n",
-                                           delta_ns);
-                            }
-                        } else {
-                            lport->other_stats.rx_timestamp_errors++;
-                            if (_btst(DEBUG_MODE))
-                                printf("Warning: RX timestamp < TX timestamp\n");
-                        }
-                    } else if (_btst(DEBUG_MODE) &&
-                               (lport->other_stats.total_pkts.rx % 1000 == 0)) {
-                        printf("No valid TX timestamp to calculate HW RTT\n");
+                        // Update HW Rx RTT statistics
+                        lport->other_stats.hw_rx_rtt.count++;
+                        lport->other_stats.hw_rx_rtt.sum_ns += delta_ns;
+                        if (delta_ns < lport->other_stats.hw_rx_rtt.min_ns)
+                            lport->other_stats.hw_rx_rtt.min_ns = delta_ns;
+                        if (delta_ns > lport->other_stats.hw_rx_rtt.max_ns)
+                            lport->other_stats.hw_rx_rtt.max_ns = delta_ns;
+                        lport->prev_rx_timestamp = rx_timestamp;
                     }
-                } else {
+                } else
                     lport->other_stats.rx_no_timestamp++;
-                }
             }
 
+            if (_btst(HW_TX_TIMESTAMP)) {
+                if (lport->tx_timestamp != UINT64_MAX && lport->tx_timestamp != 0) {
+                    // Calculate one-way RTT as half the delta between RX and TX
+                    // timestamps
+                    if (lport->tx_timestamp > lport->prev_tx_timestamp) {
+                        delta_ns = (lport->prev_tx_timestamp - lport->tx_timestamp);
+
+                        // Sanity check: RTT should be reasonable (< 1 second)
+                        if (delta_ns < NSEC_PER_SEC) {
+                            // Update HW RTT statistics
+                            lport->other_stats.hw_tx_rtt.count++;
+                            lport->other_stats.hw_tx_rtt.sum_ns += delta_ns;
+                            if (delta_ns < lport->other_stats.hw_tx_rtt.min_ns)
+                                lport->other_stats.hw_tx_rtt.min_ns = delta_ns;
+                            if (delta_ns > lport->other_stats.hw_tx_rtt.max_ns)
+                                lport->other_stats.hw_tx_rtt.max_ns = delta_ns;
+                        } else {
+                            lport->other_stats.hw_tx_rtt_invalid++;
+                            if (_btst(DEBUG_MODE))
+                                printf("Warning: HW RTT too large: %'" PRIu64 " ns\n", delta_ns);
+                        }
+                    } else {
+                        lport->other_stats.rx_timestamp_errors++;
+                        if (_btst(DEBUG_MODE))
+                            printf("Warning: RX timestamp < TX timestamp\n");
+                    }
+                }
+            }
             // Swap MAC addresses
             rte_ether_addr_copy(&rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->dst_addr, &tmp);
             rte_ether_addr_copy(&rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->src_addr,
@@ -217,15 +236,14 @@ rx_timestamping(lport_t *lport)
 
             tx_mbufs[nb_tx++] = pkt;
         }
-
-        // Client mode - free the Rx packets
-        if (pinfo->client_mode)
-            rte_pktmbuf_free_bulk(tx_mbufs, nb_tx);
-        else        // Server mode - loopback packets
-            send_packets(lport->pid, lport->qid, tx_mbufs, nb_tx);
-        lport->other_stats.total_pkts.tx += nb_tx;
     }
 
+    // Client mode - free the Rx packets
+    if (pinfo->client_mode)
+        rte_pktmbuf_free_bulk(tx_mbufs, nb_tx);
+    else        // Server mode - loopback packets
+        send_packets(lport->pid, lport->qid, tx_mbufs, nb_tx);
+    lport->other_stats.total_pkts.tx += nb_tx;
     return 0;
 }
 

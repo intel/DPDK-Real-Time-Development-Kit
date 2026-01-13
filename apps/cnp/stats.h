@@ -39,9 +39,11 @@ typedef struct stats_s {
     uint64_t tx_timestamp_timeouts;        // TX timestamp read timeouts
     uint64_t rx_timestamp_errors;          // RX timestamp validation errors
     uint64_t rx_no_timestamp;              // RX packets without timestamp flag
-    uint64_t hw_rtt_invalid;               // Invalid HW RTT measurements (too large)
+    uint64_t hw_rx_rtt_invalid;            // Invalid HW Rx RTT measurements (too large)
+    uint64_t hw_tx_rtt_invalid;            // Invalid HW Rx RTT measurements (too large)
     min_avg_max_t rtt;                     // Round Trip Time statistics
-    min_avg_max_t hw_rtt;                  // Hardware Round Trip Time statistics
+    min_avg_max_t hw_rx_rtt;               // Hardware Rx Round Trip Time statistics
+    min_avg_max_t hw_tx_rtt;               // Hardware Tx Round Trip Time statistics
 } stats_t;
 
 void print_stats(void);
