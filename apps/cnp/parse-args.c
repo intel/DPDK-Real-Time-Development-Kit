@@ -63,7 +63,6 @@ parse_args(int argc, char **argv)
 		{"dst-mac", required_argument, 0, 'd'},
 		{"promiscuous", no_argument, 0, 'P'},
 		{"hw-rx-timestamp", no_argument, 0, 'R'},
-        {"hw-launch-time", no_argument, 0, 'L'},
 		{"hw-tx-timestamp", no_argument, 0, 'T'},
 		{"sw-timestamp", no_argument, 0, 'S'},
 		{"debug", no_argument, 0, 'D'},
@@ -71,7 +70,7 @@ parse_args(int argc, char **argv)
 		{NULL, 0, 0, 0}
     };
     // clang-format on
-    const char *short_options = "t:l:c:d:PRLTSDh";
+    const char *short_options = "t:l:c:d:PRTSDh";
     argvopt                   = argv;
 
     pinfo->dst_mac_str = strdup("FF:FF:FF:FF:FF:FF");
@@ -120,10 +119,6 @@ parse_args(int argc, char **argv)
         case 'R':        // Hardware Rx timestamping
             _bset(HW_RX_TIMESTAMP);
             printf(">> Hardware RX Timestamping Enabled\n");
-            break;
-        case 'L':        // Hardware Tx timestamping (LaunchTime)
-            _bset(HW_LAUNCH_TIME);
-            printf(">> Hardware TX LaunchTime Timestamping Enabled\n");
             break;
         case 'T':        // Hardware Tx timestamping IEEE1588
             _bset(HW_TX_TIMESTAMP);

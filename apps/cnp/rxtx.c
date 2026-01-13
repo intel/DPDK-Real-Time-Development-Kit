@@ -10,17 +10,18 @@
 #include "cnp-tuning.h"
 #include "probe.h"
 #include <rte_hexdump.h>
+#include <rte_cycles.h>
 #include <unistd.h>
 
-#define TX_READ_TIMESTAMP_TIMO \
-    100        // 100 * 10us timeout (increased for better NIC compatibility)
+#define TX_READ_TIMESTAMP_TIMO 100       // 100 iterations timeout
+#define TX_POLL_DELAY_US       2         // 2 microseconds delay between polls
 
 static int
 poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
 {
     struct timespec timestamp = {0};
     int timo                  = TX_READ_TIMESTAMP_TIMO;
-    int ret;
+    int ret                   = -EINVAL;
 
     do {
         ret = rte_eth_timesync_read_tx_timestamp(port_id, &timestamp);
@@ -37,14 +38,23 @@ poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
                 printf("Got TX timespec: %'" PRIu64 " sec, %'" PRIu64 " ns, ret %d\n",
                        (uint64_t)timestamp.tv_sec, (uint64_t)timestamp.tv_nsec, ret);
             break;
+        } else if (ret == -1 || ret == -EINVAL || ret == -EAGAIN) {
+            // Timestamp not yet available (-1, -EINVAL, -EAGAIN all mean "not ready yet")
+            // ICE driver often returns -1 instead of proper errno codes
+            rte_delay_us(TX_POLL_DELAY_US);
+        } else {
+            // Unexpected error code (e.g., -ENODEV, -EIO)
+            if (_btst(DEBUG_MODE))
+                printf("TX timestamp read error: ret=%d (%s)\n", ret, rte_strerror(-ret));
+            stats->tx_timestamp_errors++;
+            break;
         }
-        rte_pause();
-    } while (--timo);
+    } while (--timo > 0);
 
-    if (ret == -EAGAIN || timo == 0) {
+    if ((ret == -1 || ret == -EINVAL || ret == -EAGAIN) && timo == 0) {
         stats->tx_timestamp_timeouts++;
         if (_btst(DEBUG_MODE))
-            printf("TX timestamp polling timeout after %d * 10us\n", TX_READ_TIMESTAMP_TIMO);
+            printf("TX timestamp timeout after %d attempts\n", TX_READ_TIMESTAMP_TIMO);
     }
 
     return ret;
@@ -83,30 +93,48 @@ tx_timestamping(lport_t *lport)
     m->ol_flags = 0;
 
     // Set TX timestamp flag if enabled
-    if (_btst(HW_LAUNCH_TIME)) {
-        uint64_t port_ns = port_clock_get_ns(lport->pid);        // Get port clock for launch time
-        uint64_t packet_interval_ns = NSEC_PER_SEC / 60;         // Example interval
-
-        m->ol_flags |= lport->tx_timestamp_flag;
+    if (_btst(HW_TX_TIMESTAMP))
         m->ol_flags |= RTE_MBUF_F_TX_IEEE1588_TMST;
-        *RTE_MBUF_DYNFIELD(m, lport->tx_timestamp_offset, uint64_t *) =
-            port_ns + packet_interval_ns;
-    }
-
-    if (_btst(HW_TX_TIMESTAMP)) {
-        // Initialize TX timestamp to invalid value
-        lport->tx_timestamp = UINT64_MAX;
-    }
 
     send_packets(lport->pid, lport->qid, &m, 1);
 
     if (_btst(HW_TX_TIMESTAMP)) {
-        int ret = poll_tx_timestamp(lport->pid, &lport->tx_timestamp, &lport->other_stats);
+        int ret;
+
+        lport->tx_timestamp = UINT64_MAX;
+
+        // Give NIC time to transmit the packet before polling
+        // E830/ice NICs need substantial time to actually transmit and capture timestamp
+        rte_delay_us_block(100);
+
+        ret = poll_tx_timestamp(lport->pid, &lport->tx_timestamp, &lport->other_stats);
         if (ret != 0) {
             // Keep previous timestamp on failure
             if (_btst(DEBUG_MODE))
                 printf("Failed to get TX timestamp on port %u: %s\n", lport->pid,
                        rte_strerror(-ret));
+        } else {
+            if (lport->tx_timestamp != UINT64_MAX && lport->tx_timestamp > 0) {
+                printf("Using TX timestamp: %'016" PRIu64 "\n", lport->tx_timestamp);
+                if (lport->tx_timestamp >= lport->prev_tx_timestamp) {
+                    uint64_t delta_ns = (lport->tx_timestamp - lport->prev_tx_timestamp);
+
+                    // Update HW Tx RTT statistics
+                    lport->other_stats.hw_tx_rtt.count++;
+                    lport->other_stats.hw_tx_rtt.sum_ns += delta_ns;
+                    if (delta_ns < lport->other_stats.hw_tx_rtt.min_ns)
+                        lport->other_stats.hw_tx_rtt.min_ns = delta_ns;
+                    if (delta_ns > lport->other_stats.hw_tx_rtt.max_ns)
+                        lport->other_stats.hw_tx_rtt.max_ns = delta_ns;
+
+                    lport->prev_tx_timestamp = lport->tx_timestamp;
+
+                } else {
+                    lport->other_stats.rx_timestamp_errors++;
+                    if (_btst(DEBUG_MODE))
+                        printf("Warning: RX timestamp < TX timestamp\n");
+                }
+            }
         }
     }
 
@@ -172,7 +200,7 @@ rx_timestamping(lport_t *lport)
 
             if (_btst(HW_RX_TIMESTAMP)) {
                 // Check packet for RX timestamp flag
-                if (pkt->ol_flags & RTE_MBUF_F_RX_IEEE1588_TMST) {
+                if (pkt->ol_flags & lport->rx_timestamp_flag) {
                     uint64_t rx_timestamp =
                         *RTE_MBUF_DYNFIELD(pkt, lport->rx_timestamp_offset, uint64_t *);
 
@@ -200,34 +228,6 @@ rx_timestamping(lport_t *lport)
                     lport->other_stats.rx_no_timestamp++;
             }
 
-            if (_btst(HW_TX_TIMESTAMP)) {
-                if (lport->tx_timestamp != UINT64_MAX && lport->tx_timestamp != 0) {
-                    // Calculate one-way RTT as half the delta between RX and TX
-                    // timestamps
-                    if (lport->tx_timestamp > lport->prev_tx_timestamp) {
-                        delta_ns = (lport->prev_tx_timestamp - lport->tx_timestamp);
-
-                        // Sanity check: RTT should be reasonable (< 1 second)
-                        if (delta_ns < NSEC_PER_SEC) {
-                            // Update HW RTT statistics
-                            lport->other_stats.hw_tx_rtt.count++;
-                            lport->other_stats.hw_tx_rtt.sum_ns += delta_ns;
-                            if (delta_ns < lport->other_stats.hw_tx_rtt.min_ns)
-                                lport->other_stats.hw_tx_rtt.min_ns = delta_ns;
-                            if (delta_ns > lport->other_stats.hw_tx_rtt.max_ns)
-                                lport->other_stats.hw_tx_rtt.max_ns = delta_ns;
-                        } else {
-                            lport->other_stats.hw_tx_rtt_invalid++;
-                            if (_btst(DEBUG_MODE))
-                                printf("Warning: HW RTT too large: %'" PRIu64 " ns\n", delta_ns);
-                        }
-                    } else {
-                        lport->other_stats.rx_timestamp_errors++;
-                        if (_btst(DEBUG_MODE))
-                            printf("Warning: RX timestamp < TX timestamp\n");
-                    }
-                }
-            }
             // Swap MAC addresses
             rte_ether_addr_copy(&rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->dst_addr, &tmp);
             rte_ether_addr_copy(&rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *)->src_addr,

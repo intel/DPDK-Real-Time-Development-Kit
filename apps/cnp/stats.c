@@ -146,11 +146,10 @@ print_stats(void)
     printf("Packet Length: %'u\n", pinfo->pkt_length + FCS_SIZE);
 
     printf("   Modes: ");
-    printf("%sPromiscuous%s ", _btst(PROMISCUOUS) ? "\033[32m" : "\033[31m", "\033[0m");
+    printf("%sSW-TMST%s ", _btst(SW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
     printf("%sRX-TMST%s ", _btst(HW_RX_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
     printf("%sTX-TMST%s ", _btst(HW_TX_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
-    printf("%sLaunchTime%s ", _btst(HW_LAUNCH_TIME) ? "\033[32m" : "\033[31m", "\033[0m");
-    printf("%sSW-TMST%s ", _btst(SW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
+    printf("%sPromiscuous%s ", _btst(PROMISCUOUS) ? "\033[32m" : "\033[31m", "\033[0m");
     printf("\n");
     printf("   MAC: ");
     print_mac(DST_MAC);

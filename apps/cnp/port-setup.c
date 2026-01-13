@@ -26,8 +26,6 @@ port_init(lport_t *lport)
     uint16_t nb_txd          = NUM_TX_DESC_DEFAULT;
     int retval;
     uint16_t pid, qid;
-    int offset    = 0;
-    uint64_t flag = 0;
 
     rte_spinlock_lock(&pinfo->port_lock);
 
@@ -89,26 +87,6 @@ port_init(lport_t *lport)
         port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
     }
 
-    retval = rte_mbuf_dyn_rx_timestamp_register(&offset, &flag);
-    if (retval < 0) {
-        printf("    Warning: Failed to register Rx timestamp: %s\n", rte_strerror(-retval));
-        _bclr(HW_RX_TIMESTAMP);
-        _bclr(HW_TX_TIMESTAMP);
-    } else {
-        lport->rx_timestamp_offset = offset;
-        lport->rx_timestamp_flag   = flag;
-        printf("    Rx Hardware timestamping: (offset=%d, flag=0x%lx)\n", offset, flag);
-    }
-    retval = rte_mbuf_dyn_tx_timestamp_register(&offset, &flag);
-    if (retval < 0) {
-        printf("    Warning: Failed to register Tx timestamp: %s\n", rte_strerror(-retval));
-        _bclr(HW_RX_TIMESTAMP);
-        _bclr(HW_TX_TIMESTAMP);
-    } else {
-        lport->tx_timestamp_offset = offset;
-        lport->tx_timestamp_flag   = flag;
-        printf("    Tx Hardware timestamping: (offset=%d, flag=0x%lx)\n", offset, flag);
-    }
     if (dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP) {
         if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
             printf("    Supports Rx hardware timestamping\n");
@@ -122,16 +100,6 @@ port_init(lport_t *lport)
         printf("    Warning: Port %u does not support Rx hardware timestamping\n", pid);
         _bclr(HW_RX_TIMESTAMP);
         _bclr(HW_TX_TIMESTAMP);
-    }
-
-    if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_SEND_ON_TIMESTAMP) {
-        if (_btst(HW_LAUNCH_TIME)) {
-            printf("    Supports Tx launchtime or send on timestamp\n");
-            port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_SEND_ON_TIMESTAMP;
-        }
-    } else {
-        printf("    Warning: Port %u does not support Tx launchtime\n", pid);
-        _bclr(HW_LAUNCH_TIME);
     }
 
     printf("  Number of RX/TX queues: %u/%u\n", rx_queues, tx_queues);
@@ -245,18 +213,26 @@ port_init(lport_t *lport)
     if ((retval = rte_eth_dev_start(pid)) < 0)
         goto err_exit;
 
+    /* Enable timestamping AFTER starting the device (required for many NICs) */
     if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
         if ((retval = rte_eth_timesync_enable(pid)) != 0) {
             printf("Warning: rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
             printf("Continuing without Rx/Tx hardware timestamping\n");
             _bclr(HW_RX_TIMESTAMP);
             _bclr(HW_TX_TIMESTAMP);
+        } else {
+            if (_btst(HW_RX_TIMESTAMP))
+                printf("  Rx Hardware timestamping enabled on port %u\n", pid);
+            if (_btst(HW_TX_TIMESTAMP)) {
+                printf("  Tx Hardware timestamping enabled on port %u\n", pid);
+                
+                // Clear any stale TX timestamp from hardware
+                struct timespec ts = {0};
+                rte_eth_timesync_read_tx_timestamp(pid, &ts);
+            }
         }
-        if (_btst(HW_RX_TIMESTAMP))
-            printf("Rx Hardware timestamping enabled on port %u\n", pid);
-        if (_btst(HW_TX_TIMESTAMP))
-            printf("Tx Hardware timestamping enabled on port %u\n", pid);
     }
+
     /* Enable RX in promiscuous mode for the Ethernet device. */
     if (_btst(PROMISCUOUS)) {
         retval = rte_eth_promiscuous_enable(pid);
@@ -265,6 +241,15 @@ port_init(lport_t *lport)
             goto err_exit;
         }
     }
+
+    int dynf = rte_mbuf_dynflag_lookup(RTE_MBUF_DYNFLAG_RX_TIMESTAMP_NAME, NULL);
+    if (dynf >= 0)
+        lport->rx_timestamp_flag = (1UL << dynf);
+    dynf = rte_mbuf_dynfield_lookup(RTE_MBUF_DYNFIELD_TIMESTAMP_NAME, NULL);
+    if (dynf >= 0)
+        lport->rx_timestamp_offset = dynf;
+    printf("  RX timestamp dynfield offset: %u flag: 0x%016" PRIx64 " %d\n",
+           lport->rx_timestamp_offset, lport->rx_timestamp_flag, dynf);
 
     return 0;
 err_exit:

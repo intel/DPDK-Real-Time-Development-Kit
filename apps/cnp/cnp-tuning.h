@@ -39,10 +39,8 @@
 #define RX_BURST_SIZE 16
 
 typedef struct lport {
-    uint64_t rx_timestamp_flag;                      // mbuf Rx timestamp flag
     uint16_t rx_timestamp_offset;                    // Rx timestamp offset in mbuf dynamic fields
-    uint64_t tx_timestamp_flag;                      // mbuf Tx timestamp flag
-    uint16_t tx_timestamp_offset;                    // Tx timestamp offset in mbuf dynamic fields
+    uint64_t rx_timestamp_flag;                      // Rx Timestamp flag
     struct rte_mbuf *rx_mbufs[RX_BURST_SIZE];        // Array of RX mbufs
     struct rte_mbuf *tx_mbufs[RX_BURST_SIZE];        // Array of TX mbufs
     struct rte_ether_addr src_mac;                   // Source MAC address
@@ -84,7 +82,6 @@ enum {                           // Bit values for info_t.flags field
     TTY_IS_INITED_FLAG,          // TTY has been inited flag
     PROMISCUOUS_FLAG,            // Port promiscuous enabled flag
     HW_RX_TIMESTAMP_FLAG,        // Hardware Rx/Tx timestamping enabled flag
-    HW_LAUNCH_TIME_FLAG,         // Send on Timestamp enable flag (LaunchTime)
     HW_TX_TIMESTAMP_FLAG,        // Hardware Tx Timestamping enable flag (IEEE1588)
     SW_TIMESTAMP_FLAG,           // Software timestamping enabled flag
     DEBUG_MODE_FLAG,             // Debug mode enabled flag
