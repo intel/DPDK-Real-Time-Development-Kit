@@ -13,7 +13,7 @@
 #include <rte_cycles.h>
 #include <unistd.h>
 
-#define TX_READ_TIMESTAMP_TIMO 100       // 100 iterations timeout
+#define TX_READ_TIMESTAMP_TIMO 10       // 10 iterations timeout
 #define TX_POLL_DELAY_US       2         // 2 microseconds delay between polls
 
 static int
