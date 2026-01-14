@@ -39,6 +39,8 @@
 #define RX_BURST_SIZE 16
 
 typedef struct lport {
+    struct rte_eth_dev_info dev_info;                // Device info
+    struct rte_eth_conf port_conf;                   // Port configuration
     uint16_t rx_timestamp_offset;                    // Rx timestamp offset in mbuf dynamic fields
     uint64_t rx_timestamp_flag;                      // Rx Timestamp flag
     struct rte_mbuf *rx_mbufs[RX_BURST_SIZE];        // Array of RX mbufs
@@ -49,7 +51,9 @@ typedef struct lport {
     struct rte_mempool *tx_mp;                       // Memory pool for Tx mbufs
     uint32_t tx_sequence;                            // Sequence ID for Tx
     uint32_t rx_sequence;                            // Sequence ID for Rx
-    uint16_t pid, qid;                               // Port ID and Queue ID, assume 0,0 for now
+    uint16_t pid, qid, sid;                          // Port ID and Queue ID, assume 0,0 for now
+    uint16_t nb_rxd, nb_txd;                         // Number of RX/TX descriptors
+    uint16_t rx_queues, tx_queues;                   // Number of RX/TX queues
     struct rte_eth_link link;                        // Link status
     struct rte_eth_stats stats;                      // Port Statistics
     struct rte_eth_stats stats_prev;                 // Previous port statistics

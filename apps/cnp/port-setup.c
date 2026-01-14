@@ -11,187 +11,214 @@
 
 #include <rte_mbuf_dyn.h>
 
-/*
- * Initializes a given port using global settings and with the RX buffers
- * coming from the mbuf_pool passed as a parameter.
- */
-int
-port_init(lport_t *lport)
+static int
+__init_setup_defaults(lport_t *lport)
 {
-    struct rte_eth_dev_info dev_info = {0};
-    struct rte_eth_conf port_conf;
-    const uint16_t rx_queues = 1;
-    const uint16_t tx_queues = 1;
-    uint16_t nb_rxd          = NUM_RX_DESC_DEFAULT;
-    uint16_t nb_txd          = NUM_TX_DESC_DEFAULT;
-    int retval;
-    uint16_t pid, qid;
+    memset(&lport->dev_info, 0, sizeof(struct rte_eth_dev_info));
+    memset(&lport->port_conf, 0, sizeof(struct rte_eth_conf));
+    lport->nb_rxd    = NUM_RX_DESC_DEFAULT;
+    lport->nb_txd    = NUM_TX_DESC_DEFAULT;
+    lport->rx_queues = 1;
+    lport->tx_queues = 1;
 
-    rte_spinlock_lock(&pinfo->port_lock);
+    printf("Initializing lport %u:%u...\n", lport->pid, lport->qid);
+    int sid = rte_eth_dev_socket_id(lport->pid);
+    if (sid == SOCKET_ID_ANY)
+        sid = 0;
+    lport->sid = sid;
+    printf("  Using socket ID %u for allocations\n", lport->sid);
 
-    pid = lport->pid;
-    qid = lport->qid;
-    printf("Initializing lport %u:%u...\n", pid, qid);
-
-    if (!rte_eth_dev_is_valid_port(pid))
-        rte_exit(EXIT_FAILURE, "Invalid port %u\n", pid);
-
-    retval = rte_eth_dev_info_get(pid, &dev_info);
+    int retval = rte_eth_dev_info_get(lport->pid, &lport->dev_info);
     if (retval != 0) {
-        printf("Error during getting device port %u info: %s\n", pid, strerror(-retval));
-        goto err_exit;
+        printf("Error during getting device port %u info: %s\n", lport->pid, strerror(-retval));
+        return -1;
     }
+    return 0;
+}
 
+static int
+__init_port_configure(lport_t *lport)
+{
     printf("Port information:\n");
-    memset(&port_conf, 0, sizeof(struct rte_eth_conf));
 
-    port_conf.rx_adv_conf.rss_conf.rss_key = NULL;
-    port_conf.rx_adv_conf.rss_conf.rss_hf &= dev_info.flow_type_rss_offloads;
+    lport->port_conf.rx_adv_conf.rss_conf.rss_key = NULL;
+    lport->port_conf.rx_adv_conf.rss_conf.rss_hf &= lport->dev_info.flow_type_rss_offloads;
 
-    printf("  max_rx_pktlen: %u\n", dev_info.max_rx_pktlen);
-    printf("  max_rx_queues: %u, max_tx_queues: %u\n", dev_info.max_rx_queues,
-           dev_info.max_tx_queues);
-    if (dev_info.max_rx_queues == 1)
-        port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_NONE;
+    printf("  max_rx_pktlen: %u\n", lport->dev_info.max_rx_pktlen);
+    printf("  max_rx_queues: %u, max_tx_queues: %u\n", lport->dev_info.max_rx_queues,
+           lport->dev_info.max_tx_queues);
+    if (lport->dev_info.max_rx_queues == 1)
+        lport->port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_NONE;
     else
-        port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_RSS;
-
-    port_conf.txmode.mq_mode = RTE_ETH_MQ_TX_NONE;
+        lport->port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_RSS;
+    lport->port_conf.txmode.mq_mode = RTE_ETH_MQ_TX_NONE;
 
     // Adjust max_lro_pkt_size if needed
-    if (dev_info.max_lro_pkt_size > RTE_ETHER_MAX_LEN) {
-        printf("  Adjusting max_lro_pkt_size from %u to %u\n", dev_info.max_lro_pkt_size,
+    if (lport->dev_info.max_lro_pkt_size > RTE_ETHER_MAX_LEN) {
+        printf("  Adjusting max_lro_pkt_size from %u to %u\n", lport->dev_info.max_lro_pkt_size,
                RTE_ETHER_MAX_LEN);
-        port_conf.rxmode.max_lro_pkt_size = RTE_ETHER_MAX_LEN;
+        lport->port_conf.rxmode.max_lro_pkt_size = RTE_ETHER_MAX_LEN;
     }
-    printf("  max_lro_pkt_size: %u\n", port_conf.rxmode.max_lro_pkt_size);
-
+    printf("  max_lro_pkt_size: %u\n", lport->port_conf.rxmode.max_lro_pkt_size);
     printf("  Offload capabilities:\n");
-    printf("    Max VFS: %u\n", dev_info.max_vfs);
-    if (dev_info.max_vfs) {
-        if (port_conf.rx_adv_conf.rss_conf.rss_hf != 0) {
+    printf("    Max VFS: %u\n", lport->dev_info.max_vfs);
+    if (lport->dev_info.max_vfs) {
+        if (lport->port_conf.rx_adv_conf.rss_conf.rss_hf != 0) {
             printf("    Supports RSS with VMDQ, enable\n");
-            port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_VMDQ_RSS;
+            lport->port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_VMDQ_RSS;
         }
     }
 
-    printf("    Device flags: 0x%08x\n", *dev_info.dev_flags);
+    printf("    Device flags: 0x%08x\n", *lport->dev_info.dev_flags);
 
-    if (*dev_info.dev_flags & RTE_ETH_DEV_INTR_LSC) {
+    if (*lport->dev_info.dev_flags & RTE_ETH_DEV_INTR_LSC) {
         printf("    Supports Link Status Change interrupts\n");
-        port_conf.intr_conf.lsc = 0;        // Disable for now
+        lport->port_conf.intr_conf.lsc = 0;        // Disable for now
     }
 
-    if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE) {
+    if (lport->dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE) {
         printf("    Supports TX mbuf fast free, enabled\n");
-        port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
+        lport->port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
     }
 
-    if (dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP) {
+    if (lport->dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP) {
         if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
             printf("    Supports Rx hardware timestamping\n");
-            port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
+            lport->port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
         } else {
-            printf("    Warning: Port %u does not support Rx hardware timestamping\n", pid);
+            printf("    Warning: Port %u does not support Rx hardware timestamping\n", lport->pid);
             _bclr(HW_RX_TIMESTAMP);
             _bclr(HW_TX_TIMESTAMP);
         }
     } else {
-        printf("    Warning: Port %u does not support Rx hardware timestamping\n", pid);
+        printf("    Warning: Port %u does not support Rx hardware timestamping\n", lport->pid);
         _bclr(HW_RX_TIMESTAMP);
         _bclr(HW_TX_TIMESTAMP);
     }
+    return 0;
+}
+
+static int
+__init_device_configure(lport_t *lport)
+{
+    uint16_t tx_queues = lport->tx_queues;
+    uint16_t rx_queues = lport->rx_queues;
 
     printf("  Number of RX/TX queues: %u/%u\n", rx_queues, tx_queues);
 
     /* Configure the Ethernet device. */
-    retval = rte_eth_dev_configure(pid, rx_queues, tx_queues, &port_conf);
-    if (retval != 0)
-        goto err_exit;
+    if (rte_eth_dev_configure(lport->pid, rx_queues, tx_queues, &lport->port_conf) < 0)
+        return -1;
+    return 0;
+}
 
-    printf("  RX descriptor limits... min:%u max:%u align:%u\n", dev_info.rx_desc_lim.nb_min,
-           dev_info.rx_desc_lim.nb_max, dev_info.rx_desc_lim.nb_align);
-    if (dev_info.rx_desc_lim.nb_min > nb_rxd)
-        nb_rxd = dev_info.rx_desc_lim.nb_min;
-    if (dev_info.rx_desc_lim.nb_max > 0) {
-        if (nb_rxd > dev_info.rx_desc_lim.nb_max)
-            nb_rxd = dev_info.rx_desc_lim.nb_max;
+static int
+__init_adjust_rx_tx_desc(lport_t *lport)
+{
+    printf("  RX descriptor limits... min:%u max:%u align:%u\n", lport->dev_info.rx_desc_lim.nb_min,
+           lport->dev_info.rx_desc_lim.nb_max, lport->dev_info.rx_desc_lim.nb_align);
+    if (lport->dev_info.rx_desc_lim.nb_min > lport->nb_rxd)
+        lport->nb_rxd = lport->dev_info.rx_desc_lim.nb_min;
+    if (lport->dev_info.rx_desc_lim.nb_max > 0) {
+        if (lport->nb_rxd > lport->dev_info.rx_desc_lim.nb_max)
+            lport->nb_rxd = lport->dev_info.rx_desc_lim.nb_max;
     }
-    printf("    Using %u RX descriptors\n", nb_rxd);
-    printf("  TX descriptor limits... min:%u max:%u align:%u\n", dev_info.tx_desc_lim.nb_min,
-           dev_info.tx_desc_lim.nb_max, dev_info.tx_desc_lim.nb_align);
-    if (dev_info.tx_desc_lim.nb_min > nb_txd)
-        nb_txd = dev_info.tx_desc_lim.nb_min;
-    if (dev_info.tx_desc_lim.nb_max > 0) {
-        if (nb_txd > dev_info.tx_desc_lim.nb_max)
-            nb_txd = dev_info.tx_desc_lim.nb_max;
-    }
-    printf("    Using %u TX descriptors\n", nb_txd);
-    retval = rte_eth_dev_adjust_nb_rx_tx_desc(pid, &nb_rxd, &nb_txd);
-    if (retval != 0)
-        goto err_exit;
+    printf("    Using %u RX descriptors\n", lport->nb_rxd);
 
-    lport->rx_mp = lport_pktmbuf_pool("rx", pid, qid, DEFAULT_MBUF_COUNT, DEFAULT_MBUF_SIZE,
-                                      DEFAULT_CACHE_SIZE);
+    printf("  TX descriptor limits... min:%u max:%u align:%u\n", lport->dev_info.tx_desc_lim.nb_min,
+           lport->dev_info.tx_desc_lim.nb_max, lport->dev_info.tx_desc_lim.nb_align);
+    if (lport->dev_info.tx_desc_lim.nb_min > lport->nb_txd)
+        lport->nb_txd = lport->dev_info.tx_desc_lim.nb_min;
+    if (lport->dev_info.tx_desc_lim.nb_max > 0) {
+        if (lport->nb_txd > lport->dev_info.tx_desc_lim.nb_max)
+            lport->nb_txd = lport->dev_info.tx_desc_lim.nb_max;
+    }
+    printf("    Using %u TX descriptors\n", lport->nb_txd);
+
+    if (rte_eth_dev_adjust_nb_rx_tx_desc(lport->pid, &lport->nb_rxd, &lport->nb_txd) != 0)
+        return -1;
+
+    return 0;
+}
+
+static int
+__init_mempools(lport_t *lport)
+{
+    lport->rx_mp = lport_pktmbuf_pool("rx", lport->pid, lport->qid, DEFAULT_MBUF_COUNT,
+                                      DEFAULT_MBUF_SIZE, DEFAULT_CACHE_SIZE);
     if (lport->rx_mp == NULL) {
         printf("Error during allocating mbuf pool for RX\n");
-        goto err_exit;
+        return -1;
     }
 
-    lport->tx_mp = lport_pktmbuf_pool("tx", pid, qid, DEFAULT_MBUF_COUNT, DEFAULT_MBUF_SIZE,
-                                      DEFAULT_CACHE_SIZE);
+    lport->tx_mp = lport_pktmbuf_pool("tx", lport->pid, lport->qid, DEFAULT_MBUF_COUNT,
+                                      DEFAULT_MBUF_SIZE, DEFAULT_CACHE_SIZE);
     if (lport->tx_mp == NULL) {
         printf("Error during allocating mbuf pool for TX\n");
-        goto err_exit;
+        return -1;
     }
 
     printf("  Rx Mempool: %s, count %u size %u\n", lport->rx_mp->name, lport->rx_mp->size,
            lport->rx_mp->elt_size);
     printf("  Tx Mempool: %s, count %u size %u\n", lport->tx_mp->name, lport->tx_mp->size,
            lport->tx_mp->elt_size);
+    return 0;
+}
 
-    int sid = rte_eth_dev_socket_id(pid);
-    if (sid == SOCKET_ID_ANY)
-        sid = 0;
-    printf("  Using socket ID %d for allocations\n", sid);
+static int
+__init_rx_queues(lport_t *lport)
+{
     /* Allocate and set up RX queue per Ethernet port. */
-    for (uint16_t q = 0; q < rx_queues; q++) {
+    for (uint16_t q = 0; q < lport->rx_queues; q++) {
         struct rte_eth_rxconf rxconf;
 
-        rxconf                   = dev_info.default_rxconf;
-        rxconf.offloads          = port_conf.rxmode.offloads;
+		memset(&rxconf, 0, sizeof(rxconf));
+        rxconf                   = lport->dev_info.default_rxconf;
+        rxconf.offloads          = lport->port_conf.rxmode.offloads;
         rxconf.rx_thresh.pthresh = 0;
         rxconf.rx_thresh.wthresh = 0;
         rxconf.rx_thresh.hthresh = 0;
 
         printf("  RX queue %2u setup... offloads 0x%08lx\n", q, rxconf.offloads);
 
-        retval = rte_eth_rx_queue_setup(pid, q, nb_rxd, sid, &rxconf, lport->rx_mp);
-        if (retval < 0)
-            goto err_exit;
+        if (rte_eth_rx_queue_setup(lport->pid, q, lport->nb_rxd, lport->sid, &rxconf,
+                                   lport->rx_mp) < 0)
+            return -1;
     }
+    return 0;
+}
 
+static int
+__init_tx_queues(lport_t *lport)
+{
     /* Allocate and set up TX queue per Ethernet port. */
-    for (uint16_t q = 0; q < tx_queues; q++) {
+    for (uint16_t q = 0; q < lport->tx_queues; q++) {
         struct rte_eth_txconf txconf;
 
-        txconf                   = dev_info.default_txconf;
-        txconf.offloads          = port_conf.txmode.offloads;
+		memset(&txconf, 0, sizeof(txconf));
+        txconf                   = lport->dev_info.default_txconf;
+        txconf.offloads          = lport->port_conf.txmode.offloads;
         txconf.tx_thresh.pthresh = 0;
         txconf.tx_thresh.wthresh = 0;
         txconf.tx_thresh.hthresh = 0;
 
         printf("  TX queue %2u setup... offloads 0x%08lx\n", q, txconf.offloads);
 
-        retval = rte_eth_tx_queue_setup(pid, q, nb_txd, sid, &txconf);
-        if (retval < 0)
-            goto err_exit;
+        if (rte_eth_tx_queue_setup(lport->pid, q, lport->nb_txd, lport->sid, &txconf) < 0)
+			return -1;
     }
+    return 0;
+}
+
+static int
+__init_macaddr(lport_t *lport)
+{
+    uint16_t pid = lport->pid;
 
     // Get source MAC address
     if (rte_eth_macaddr_get(pid, &lport->src_mac) < 0) {
         printf("Can't get MAC address on port=%u : %s\n", pid, rte_strerror(rte_errno));
-        goto err_exit;
+        return -1;
     }
 
     // Convert the MAC address string into binary format
@@ -204,55 +231,120 @@ port_init(lport_t *lport)
     rte_ether_format_addr(buff, sizeof(buff), &lport->src_mac);
     printf("Src MAC %s\n", buff);
 
-    if (rte_eth_dev_set_ptypes(pid, RTE_PTYPE_UNKNOWN, NULL, 0) < 0) {
-        printf("Port %u, Failed to disable Ptype parsing\n", pid);
-        goto err_exit;
-    }
+    return 0;
+}
 
+static int
+__init_set_ptypes(lport_t *lport)
+{
+    if (rte_eth_dev_set_ptypes(lport->pid, RTE_PTYPE_UNKNOWN, NULL, 0) < 0) {
+        printf("Port %u, Failed to disable Ptype parsing\n", lport->pid);
+        return -1;
+    }
+    return 0;
+}
+
+static int
+__init_start_device(lport_t *lport)
+{
     /* Start the Ethernet port. */
-    if ((retval = rte_eth_dev_start(pid)) < 0)
-        goto err_exit;
+    return rte_eth_dev_start(lport->pid);
+}
+
+static int
+__init_enable_timestamping(lport_t *lport)
+{
+    int retval;
 
     /* Enable timestamping AFTER starting the device (required for many NICs) */
     if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
-        if ((retval = rte_eth_timesync_enable(pid)) != 0) {
+        if ((retval = rte_eth_timesync_enable(lport->pid)) != 0) {
             printf("Warning: rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
             printf("Continuing without Rx/Tx hardware timestamping\n");
             _bclr(HW_RX_TIMESTAMP);
             _bclr(HW_TX_TIMESTAMP);
         } else {
             if (_btst(HW_RX_TIMESTAMP))
-                printf("  Rx Hardware timestamping enabled on port %u\n", pid);
+                printf("  Rx Hardware timestamping enabled on port %u\n", lport->pid);
+
             if (_btst(HW_TX_TIMESTAMP)) {
-                printf("  Tx Hardware timestamping enabled on port %u\n", pid);
-                
+                printf("  Tx Hardware timestamping enabled on port %u\n", lport->pid);
                 // Clear any stale TX timestamp from hardware
                 struct timespec ts = {0};
-                rte_eth_timesync_read_tx_timestamp(pid, &ts);
+                rte_eth_timesync_read_tx_timestamp(lport->pid, &ts);
             }
         }
     }
+    return 0;
+}
 
+static int
+__init_promiscuous(lport_t *lport)
+{
     /* Enable RX in promiscuous mode for the Ethernet device. */
     if (_btst(PROMISCUOUS)) {
-        retval = rte_eth_promiscuous_enable(pid);
-        if (retval != 0) {
-            printf("Promiscuous mode enable failed: %s\n", rte_strerror(-retval));
-            goto err_exit;
+        if (rte_eth_promiscuous_enable(lport->pid) < 0) {
+            printf("Promiscuous mode enable failed on port %u\n", lport->pid);
+            return -1;
         }
+        printf("  Promiscuous mode enabled on port %u\n", lport->pid);
     }
+    return 0;
+}
 
+static int
+__init_timestamp_fields(lport_t *lport)
+{
     int dynf = rte_mbuf_dynflag_lookup(RTE_MBUF_DYNFLAG_RX_TIMESTAMP_NAME, NULL);
     if (dynf >= 0)
         lport->rx_timestamp_flag = (1UL << dynf);
+
     dynf = rte_mbuf_dynfield_lookup(RTE_MBUF_DYNFIELD_TIMESTAMP_NAME, NULL);
     if (dynf >= 0)
         lport->rx_timestamp_offset = dynf;
-    printf("  RX timestamp dynfield offset: %u flag: 0x%016" PRIx64 " %d\n",
-           lport->rx_timestamp_offset, lport->rx_timestamp_flag, dynf);
 
+    printf("  RX timestamp dynfield offset: %u flag: 0x%016" PRIx64 "\n",
+           lport->rx_timestamp_offset, lport->rx_timestamp_flag);
     return 0;
-err_exit:
+}
+
+/*
+ * Initializes a given port using global settings and default values.
+ */
+int
+port_init(lport_t *lport)
+{
+    // clang-format off
+    int (*inits[])(lport_t *) = {
+		__init_setup_defaults,
+		__init_port_configure,
+		__init_device_configure,
+		__init_adjust_rx_tx_desc,
+		__init_mempools,
+		__init_rx_queues,
+		__init_tx_queues,
+		__init_macaddr,
+		__init_set_ptypes,
+		__init_start_device,
+		__init_enable_timestamping,
+		__init_promiscuous,
+		__init_timestamp_fields,
+		NULL
+	};
+    // clang-format on
+
+    if (!rte_eth_dev_is_valid_port(lport->pid))
+        rte_exit(EXIT_FAILURE, "Invalid port %u\n", lport->pid);
+
+    rte_spinlock_lock(&pinfo->port_lock);
+
+    for (int i = 0; inits[i] != NULL; i++) {
+        if (inits[i](lport) < 0) {
+            rte_spinlock_unlock(&pinfo->port_lock);
+            return -1;
+        }
+    }
+
     rte_spinlock_unlock(&pinfo->port_lock);
-    return -1;
+    return 0;
 }

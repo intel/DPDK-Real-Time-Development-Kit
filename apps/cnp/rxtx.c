@@ -13,7 +13,7 @@
 #include <rte_cycles.h>
 #include <unistd.h>
 
-#define TX_READ_TIMESTAMP_TIMO 10       // 10 iterations timeout
+#define TX_READ_TIMESTAMP_TIMO 10        // 10 iterations timeout
 #define TX_POLL_DELAY_US       2         // 2 microseconds delay between polls
 
 static int
@@ -103,10 +103,6 @@ tx_timestamping(lport_t *lport)
 
         lport->tx_timestamp = UINT64_MAX;
 
-        // Give NIC time to transmit the packet before polling
-        // E830/ice NICs need substantial time to actually transmit and capture timestamp
-        rte_delay_us_block(100);
-
         ret = poll_tx_timestamp(lport->pid, &lport->tx_timestamp, &lport->other_stats);
         if (ret != 0) {
             // Keep previous timestamp on failure
@@ -115,7 +111,6 @@ tx_timestamping(lport_t *lport)
                        rte_strerror(-ret));
         } else {
             if (lport->tx_timestamp != UINT64_MAX && lport->tx_timestamp > 0) {
-                printf("Using TX timestamp: %'016" PRIu64 "\n", lport->tx_timestamp);
                 if (lport->tx_timestamp >= lport->prev_tx_timestamp) {
                     uint64_t delta_ns = (lport->tx_timestamp - lport->prev_tx_timestamp);
 
