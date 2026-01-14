@@ -87,7 +87,7 @@ tx_timestamping(lport_t *lport)
         payload->magic           = rte_cpu_to_be_16(THE_MAGIC);
         payload->sequence_number = rte_cpu_to_be_32(lport->tx_sequence++);
         payload->packet_type     = TYPE_PROBE_SEND;
-        payload->T1              = rte_cpu_to_be_64(clock_get_ns());        // Example timestamp
+        payload->T1              = rte_cpu_to_be_64(port_clock_get_ns(lport->pid));        // Example timestamp
     }
 
     m->ol_flags = 0;
