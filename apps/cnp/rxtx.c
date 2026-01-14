@@ -131,6 +131,31 @@ tx_timestamping(lport_t *lport)
             if (_btst(DEBUG_MODE))
                 printf("Failed to get TX timestamp on port %u: %s\n", lport->pid,
                        rte_strerror(-ret));
+        } else {
+            if (lport->tx_timestamp != UINT64_MAX && lport->tx_timestamp > 0) {
+                if (lport->tx_timestamp > lport->prev_tx_timestamp) {
+                    uint64_t delta_ns = (lport->tx_timestamp - lport->prev_tx_timestamp);
+
+                    printf("Port %u: TX timestamp: %lx ns, Delta: %lx ns, Count: %'" PRIu64 "\n",
+                           lport->pid, lport->tx_timestamp, delta_ns,
+                           lport->other_stats.hw_tx_rtt.count);
+                    // Update HW Tx RTT statistics
+                    if (delta_ns) {
+                        lport->other_stats.hw_tx_rtt.count++;
+                        lport->other_stats.hw_tx_rtt.sum_ns += delta_ns;
+                        if (delta_ns && delta_ns < lport->other_stats.hw_tx_rtt.min_ns)
+                            lport->other_stats.hw_tx_rtt.min_ns = delta_ns;
+                        if (delta_ns > lport->other_stats.hw_tx_rtt.max_ns)
+                            lport->other_stats.hw_tx_rtt.max_ns = delta_ns;
+
+                        lport->prev_tx_timestamp = lport->tx_timestamp;
+                    }
+                } else {
+                    lport->other_stats.rx_timestamp_errors++;
+                    if (_btst(DEBUG_MODE))
+                        printf("Warning: RX timestamp < TX timestamp\n");
+                }
+            }
         }
         end_stats_timer(&lport->other_stats.poll, clock_get_ns());
     }
