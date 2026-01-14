@@ -182,7 +182,7 @@ rx_timestamping(lport_t *lport)
                 }
 
                 T1       = rte_be_to_cpu_64(payload->T1);
-                delta_ns = clock_get_ns() - T1;
+                delta_ns = port_clock_get_ns(lport->pid) - T1;
 
                 // Update RTT statistics
                 lport->other_stats.rtt.count++;
