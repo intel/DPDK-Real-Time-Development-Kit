@@ -209,7 +209,7 @@ dpdk-build:
 		echo "$(GREEN)Building DPDK...$(NC)"; \
 		cd $(DPDK_DIR) && \
 		echo "Configuring DPDK with meson..." && \
-		meson setup $(DPDK_BUILD_DIR) -Dexamples='' -Dtests=false --prefix=$(DPDK_INSTALL_DIR) --libdir=$(DPDK_LIB_DIR) && \
+		meson setup $(DPDK_BUILD_DIR) -Dc_args=-DRTE_LIBRTE_IEEE1588 -Dexamples='' -Dtests=false --prefix=$(DPDK_INSTALL_DIR) --libdir=$(DPDK_LIB_DIR) && \
 		echo "Compiling DPDK..." && \
 		ninja -C $(DPDK_BUILD_DIR) && \
 		echo "$(GREEN)DPDK build complete$(NC)"; \
