@@ -13,6 +13,16 @@
 #include <rte_cycles.h>
 #include <unistd.h>
 
+/**
+ * The structure of a PTP V2 packet.
+ *
+ * Only the minimum fields used by the ieee1588 test are represented.
+ */
+struct ptpv2_msg {
+    uint8_t msg_id;
+    uint8_t version; /**< must be 0x02 */
+};
+
 #define TX_READ_TIMESTAMP_TIMO 10        // 10 iterations timeout
 #define TX_POLL_DELAY_US       2         // 2 microseconds delay between polls
 
@@ -65,6 +75,7 @@ tx_timestamping(lport_t *lport)
 {
     struct rte_mbuf *m;
     struct rte_ether_hdr *eth;
+    struct ptpv2_msg *ptp_hdr;
 
     if ((m = rte_pktmbuf_alloc(lport->tx_mp)) == NULL) {
         lport->other_stats.no_mbufs++;
@@ -79,15 +90,19 @@ tx_timestamping(lport_t *lport)
     rte_ether_addr_copy(&lport->dst_mac, &eth->dst_addr);
     eth->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_1588);
 
+    ptp_hdr          = rte_pktmbuf_mtod_offset(m, struct ptpv2_msg *, sizeof(struct rte_ether_hdr));
+    ptp_hdr->msg_id  = 0x0;         // PTP_SYNC_MESSAGE
+    ptp_hdr->version = 0x02;        // PTP v2
+
     if (_btst(SW_TIMESTAMP)) {
-        probe_payload_t *payload =
-            (probe_payload_t *)(rte_pktmbuf_mtod_offset(m, char *, sizeof(struct rte_ether_hdr)));
+        probe_payload_t *payload = rte_pktmbuf_mtod_offset(
+            m, probe_payload_t *, sizeof(struct rte_ether_hdr) + sizeof(struct ptpv2_msg));
 
         memset(payload, 0, sizeof(probe_payload_t));
         payload->magic           = rte_cpu_to_be_16(THE_MAGIC);
         payload->sequence_number = rte_cpu_to_be_32(lport->tx_sequence++);
         payload->packet_type     = TYPE_PROBE_SEND;
-        payload->T1              = rte_cpu_to_be_64(port_clock_get_ns(lport->pid));        // Example timestamp
+        payload->T1 = rte_cpu_to_be_64(port_clock_get_ns(lport->pid));        // Example timestamp
     }
 
     m->ol_flags = 0;
