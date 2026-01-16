@@ -23,8 +23,8 @@ struct ptpv2_msg {
     uint8_t version; /**< must be 0x02 */
 };
 
-#define TX_READ_TIMESTAMP_TIMO 1000        // 1000 iterations timeout
-#define TX_POLL_DELAY_US       1           // 1 microseconds delay between polls
+#define TX_READ_TIMESTAMP_TIMO 10        // 10 iterations timeout
+#define TX_POLL_DELAY_US       2         // 2 microseconds delay between polls
 
 static int
 poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
