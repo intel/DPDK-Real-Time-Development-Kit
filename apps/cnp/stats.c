@@ -20,9 +20,9 @@ reset_stats(void)
     memset(&lport->stats, 0, sizeof(lport->stats));
     memset(&lport->stats_prev, 0, sizeof(lport->stats_prev));
     memset(&lport->other_stats, 0, sizeof(lport->other_stats));
-    lport->other_stats.rtt.min_ns    = 1000000UL;
-    lport->other_stats.hw_rx_rtt.min_ns = 1000000UL;
-    lport->other_stats.hw_tx_rtt.min_ns = 1000000UL;
+    lport->other_stats.sw_rtt.min_ns = 1000000UL;
+    lport->other_stats.hw_rtt.min_ns = 1000000UL;
+    lport->other_stats.poll.min_ns   = 1000000UL;
 }
 
 static inline void
@@ -147,8 +147,7 @@ print_stats(void)
 
     printf("   Modes: ");
     printf("%sSW-TMST%s ", _btst(SW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
-    printf("%sRX-TMST%s ", _btst(HW_RX_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
-    printf("%sTX-TMST%s ", _btst(HW_TX_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
+    printf("%sHW-TMST%s ", _btst(HW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
     printf("%sPromiscuous%s ", _btst(PROMISCUOUS) ? "\033[32m" : "\033[31m", "\033[0m");
     printf("\n");
     printf("   MAC: ");
@@ -174,18 +173,17 @@ print_stats(void)
 
     print_link();
     print_rxtx_pps();
-    print_min_avg_max(&lport->other_stats.rtt, "SW RTT");
-    print_min_avg_max(&lport->other_stats.hw_rx_rtt, "HW Rx RTT");
-    print_min_avg_max(&lport->other_stats.hw_tx_rtt, "HW Tx RTT");
+    print_min_avg_max(&lport->other_stats.sw_rtt, "SW RTT");
+    print_min_avg_max(&lport->other_stats.hw_rtt, "HW RTT");
+    print_min_avg_max(&lport->other_stats.poll, "Poll");
     print_total_packets();
     print_errors();
-    if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
+    if (_btst(HW_TIMESTAMP)) {
         print_number("TX TS Errors", lport->other_stats.tx_timestamp_errors);
         print_number("TX TS Timeouts", lport->other_stats.tx_timestamp_timeouts);
         print_number("RX TS Errors", lport->other_stats.rx_timestamp_errors);
         print_number("RX No TS Flag", lport->other_stats.rx_no_timestamp);
         print_number("HW Rx RTT Invalid", lport->other_stats.hw_rx_rtt_invalid);
-        print_number("HW Tx RTT Invalid", lport->other_stats.hw_tx_rtt_invalid);
     }
 
     rte_memcpy(&lport->stats_prev, &lport->stats, sizeof(struct rte_eth_stats));

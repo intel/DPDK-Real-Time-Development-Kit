@@ -58,8 +58,6 @@ typedef struct lport {
     struct rte_eth_stats stats;                      // Port Statistics
     struct rte_eth_stats stats_prev;                 // Previous port statistics
     uint64_t tx_timestamp;                           // Last TX timestamp (UINT64_MAX = invalid)
-    uint64_t prev_rx_timestamp;                      // Previous RX timestamp
-    uint64_t prev_tx_timestamp;                      // Previous TX timestamp
     stats_t other_stats;                             // Other statistics
 } lport_t;
 
@@ -85,8 +83,7 @@ enum {                           // Bit values for info_t.flags field
     APP_RUNNING_FLAG = 0,        // Main Running flag
     TTY_IS_INITED_FLAG,          // TTY has been inited flag
     PROMISCUOUS_FLAG,            // Port promiscuous enabled flag
-    HW_RX_TIMESTAMP_FLAG,        // Hardware Rx/Tx timestamping enabled flag
-    HW_TX_TIMESTAMP_FLAG,        // Hardware Tx Timestamping enable flag (IEEE1588)
+    HW_TIMESTAMP_FLAG,           // Hardware Rx/Tx timestamping enabled flag
     SW_TIMESTAMP_FLAG,           // Software timestamping enabled flag
     DEBUG_MODE_FLAG,             // Debug mode enabled flag
     CLEAR_SCREEN_FLAG,           // Clear the screen flag
@@ -145,6 +142,34 @@ port_clock_get_ns(uint16_t pid)
         return 0;
 
     return clock;
+}
+
+static inline uint64_t
+start_stats_timer(min_avg_max_t *timer)
+{
+    timer->start_ns = clock_get_ns();
+	return timer->start_ns;
+}
+
+static inline void
+end_stats_timer(min_avg_max_t *timer, uint64_t now_ns)
+{
+	uint64_t end_ns = now_ns;
+	uint64_t delta  = end_ns - timer->start_ns;
+
+	// Update min/avg/max
+	timer->count++;
+	timer->sum_ns += delta;
+	if (delta < timer->min_ns)
+		timer->min_ns = delta;
+	if (delta > timer->max_ns)
+		timer->max_ns = delta;
+}
+
+static inline uint64_t
+stats_timer_get(min_avg_max_t *timer)
+{
+	return timer->start_ns;
 }
 
 static inline void

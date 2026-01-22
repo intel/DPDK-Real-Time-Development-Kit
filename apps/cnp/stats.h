@@ -12,11 +12,12 @@
 #include <stdint.h>
 
 typedef struct {
-    uint64_t min_ns;        // Minimum time in nanoseconds
-    uint64_t max_ns;        // Maximum time in nanoseconds
-    uint64_t avg_ns;        // Average time in nanoseconds
-    uint64_t sum_ns;        // Total time for average in nanoseconds
-    uint64_t count;         // Number of times
+    uint64_t min_ns;          // Minimum time in nanoseconds
+    uint64_t max_ns;          // Maximum time in nanoseconds
+    uint64_t avg_ns;          // Average time in nanoseconds
+    uint64_t sum_ns;          // Total time for average in nanoseconds
+    uint64_t count;           // Number of times
+    uint64_t start_ns;        // Start time in nanoseconds
 } min_avg_max_t;
 
 typedef struct {
@@ -40,10 +41,9 @@ typedef struct stats_s {
     uint64_t rx_timestamp_errors;          // RX timestamp validation errors
     uint64_t rx_no_timestamp;              // RX packets without timestamp flag
     uint64_t hw_rx_rtt_invalid;            // Invalid HW Rx RTT measurements (too large)
-    uint64_t hw_tx_rtt_invalid;            // Invalid HW Rx RTT measurements (too large)
-    min_avg_max_t rtt;                     // Round Trip Time statistics
-    min_avg_max_t hw_rx_rtt;               // Hardware Rx Round Trip Time statistics
-    min_avg_max_t hw_tx_rtt;               // Hardware Tx Round Trip Time statistics
+    min_avg_max_t sw_rtt;                  // Software Round Trip Time statistics
+    min_avg_max_t hw_rtt;                  // Hardware Round Trip Time statistics
+    min_avg_max_t poll;                    // TX timestamp poll time statistics
 } stats_t;
 
 void print_stats(void);

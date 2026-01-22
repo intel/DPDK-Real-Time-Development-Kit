@@ -23,8 +23,8 @@ struct ptpv2_msg {
     uint8_t version; /**< must be 0x02 */
 };
 
-#define TX_READ_TIMESTAMP_TIMO 10        // 10 iterations timeout
-#define TX_POLL_DELAY_US       2         // 2 microseconds delay between polls
+#define TX_READ_TIMESTAMP_TIMO 1000        // 1000 iterations timeout
+#define TX_POLL_DELAY_US       1           // 1 microseconds delay between polls
 
 static int
 poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
@@ -102,50 +102,32 @@ tx_timestamping(lport_t *lport)
         payload->magic           = rte_cpu_to_be_16(THE_MAGIC);
         payload->sequence_number = rte_cpu_to_be_32(lport->tx_sequence++);
         payload->packet_type     = TYPE_PROBE_SEND;
-        payload->T1 = rte_cpu_to_be_64(port_clock_get_ns(lport->pid));        // Example timestamp
+
+        payload->T1 = rte_cpu_to_be_64(start_stats_timer(&lport->other_stats.sw_rtt));
     }
 
     m->ol_flags = 0;
 
     // Set TX timestamp flag if enabled
-    if (_btst(HW_TX_TIMESTAMP))
+    if (_btst(HW_TIMESTAMP))
         m->ol_flags |= RTE_MBUF_F_TX_IEEE1588_TMST;
 
     send_packets(lport->pid, lport->qid, &m, 1);
 
-    if (_btst(HW_TX_TIMESTAMP)) {
+    if (_btst(HW_TIMESTAMP)) {
         int ret;
 
-        lport->tx_timestamp = UINT64_MAX;
+        lport->tx_timestamp = UINT64_MAX;        // Invalidate previous TX timestamp
 
+        start_stats_timer(&lport->other_stats.poll);
         ret = poll_tx_timestamp(lport->pid, &lport->tx_timestamp, &lport->other_stats);
         if (ret != 0) {
             // Keep previous timestamp on failure
             if (_btst(DEBUG_MODE))
                 printf("Failed to get TX timestamp on port %u: %s\n", lport->pid,
                        rte_strerror(-ret));
-        } else {
-            if (lport->tx_timestamp != UINT64_MAX && lport->tx_timestamp > 0) {
-                if (lport->tx_timestamp >= lport->prev_tx_timestamp) {
-                    uint64_t delta_ns = (lport->tx_timestamp - lport->prev_tx_timestamp);
-
-                    // Update HW Tx RTT statistics
-                    lport->other_stats.hw_tx_rtt.count++;
-                    lport->other_stats.hw_tx_rtt.sum_ns += delta_ns;
-                    if (delta_ns < lport->other_stats.hw_tx_rtt.min_ns)
-                        lport->other_stats.hw_tx_rtt.min_ns = delta_ns;
-                    if (delta_ns > lport->other_stats.hw_tx_rtt.max_ns)
-                        lport->other_stats.hw_tx_rtt.max_ns = delta_ns;
-
-                    lport->prev_tx_timestamp = lport->tx_timestamp;
-
-                } else {
-                    lport->other_stats.rx_timestamp_errors++;
-                    if (_btst(DEBUG_MODE))
-                        printf("Warning: RX timestamp < TX timestamp\n");
-                }
-            }
         }
+        end_stats_timer(&lport->other_stats.poll, clock_get_ns());
     }
 
     return 0;
@@ -157,7 +139,7 @@ rx_timestamping(lport_t *lport)
     struct rte_mbuf **rx_mbufs = lport->rx_mbufs;
     struct rte_mbuf **tx_mbufs = lport->tx_mbufs;
     struct rte_ether_addr tmp;
-    uint64_t T1, delta_ns;
+    uint64_t T1;
     uint16_t nb_rx = 0, nb_tx = 0;
 
     if ((nb_rx = rte_eth_rx_burst(lport->pid, lport->qid, rx_mbufs, RX_BURST_SIZE)) > 0) {
@@ -187,7 +169,7 @@ rx_timestamping(lport_t *lport)
 
             if (_btst(SW_TIMESTAMP)) {
                 payload = (probe_payload_t *)(rte_pktmbuf_mtod_offset(
-                    pkt, char *, sizeof(struct rte_ether_hdr)));
+                    pkt, char *, sizeof(struct rte_ether_hdr) + sizeof(struct ptpv2_msg)));
 
                 if (rte_be_to_cpu_16(payload->magic) != THE_MAGIC) {
                     lport->other_stats.rx_no_probe_frames++;
@@ -195,27 +177,15 @@ rx_timestamping(lport_t *lport)
                     rte_pktmbuf_free(pkt);
                     continue;
                 }
-
-                T1       = rte_be_to_cpu_64(payload->T1);
-                delta_ns = port_clock_get_ns(lport->pid) - T1;
-
-                // Update RTT statistics
-                lport->other_stats.rtt.count++;
-                lport->other_stats.rtt.sum_ns += delta_ns;
-                if (delta_ns < lport->other_stats.rtt.min_ns)
-                    lport->other_stats.rtt.min_ns = delta_ns;
-                if (delta_ns > lport->other_stats.rtt.max_ns)
-                    lport->other_stats.rtt.max_ns = delta_ns;
+                T1 = rte_be_to_cpu_64(payload->T1);
+                end_stats_timer(&lport->other_stats.sw_rtt, T1);
             }
 
-            if (_btst(HW_RX_TIMESTAMP)) {
+            if (_btst(HW_TIMESTAMP)) {
                 // Check packet for RX timestamp flag
                 if (pkt->ol_flags & lport->rx_timestamp_flag) {
                     uint64_t rx_timestamp =
                         *RTE_MBUF_DYNFIELD(pkt, lport->rx_timestamp_offset, uint64_t *);
-
-                    if (lport->prev_rx_timestamp == 0)
-                        lport->prev_rx_timestamp = rx_timestamp;
 
                     // Validate RX timestamp is non-zero and reasonable
                     if (rx_timestamp == 0) {
@@ -223,16 +193,15 @@ rx_timestamping(lport_t *lport)
                         if (_btst(DEBUG_MODE))
                             printf("Warning: RX timestamp is zero\n");
                     } else {
-                        delta_ns = (rx_timestamp - lport->prev_rx_timestamp);
-
-                        // Update HW Rx RTT statistics
-                        lport->other_stats.hw_rx_rtt.count++;
-                        lport->other_stats.hw_rx_rtt.sum_ns += delta_ns;
-                        if (delta_ns < lport->other_stats.hw_rx_rtt.min_ns)
-                            lport->other_stats.hw_rx_rtt.min_ns = delta_ns;
-                        if (delta_ns > lport->other_stats.hw_rx_rtt.max_ns)
-                            lport->other_stats.hw_rx_rtt.max_ns = delta_ns;
-                        lport->prev_rx_timestamp = rx_timestamp;
+                        if (lport->tx_timestamp != UINT64_MAX &&
+                            lport->tx_timestamp > rx_timestamp) {
+                            lport->other_stats.hw_rx_rtt_invalid++;
+                            if (_btst(DEBUG_MODE))
+                                printf("Warning: RX timestamp less than TX timestamp\n");
+                            rte_pktmbuf_free(pkt);
+                            continue;
+                        } else
+							end_stats_timer(&lport->other_stats.hw_rtt, rx_timestamp);
                     }
                 } else
                     lport->other_stats.rx_no_timestamp++;

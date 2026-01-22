@@ -82,18 +82,16 @@ __init_port_configure(lport_t *lport)
     }
 
     if (lport->dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP) {
-        if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
-            printf("    Supports Rx hardware timestamping\n");
+        if (_btst(HW_TIMESTAMP)) {
+            printf("    Supports Rx/Tx hardware timestamping\n");
             lport->port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
         } else {
-            printf("    Warning: Port %u does not support Rx hardware timestamping\n", lport->pid);
-            _bclr(HW_RX_TIMESTAMP);
-            _bclr(HW_TX_TIMESTAMP);
+            printf("    Warning: Port %u does not support Rx/Tx hardware timestamping\n", lport->pid);
+            _bclr(HW_TIMESTAMP);
         }
     } else {
-        printf("    Warning: Port %u does not support Rx hardware timestamping\n", lport->pid);
-        _bclr(HW_RX_TIMESTAMP);
-        _bclr(HW_TX_TIMESTAMP);
+        printf("    Warning: Port %u does not support Rx/Tx hardware timestamping\n", lport->pid);
+        _bclr(HW_TIMESTAMP);
     }
     return 0;
 }
@@ -257,18 +255,15 @@ __init_enable_timestamping(lport_t *lport)
     int retval;
 
     /* Enable timestamping AFTER starting the device (required for many NICs) */
-    if (_btst(HW_RX_TIMESTAMP) || _btst(HW_TX_TIMESTAMP)) {
+    if (_btst(HW_TIMESTAMP)) {
         if ((retval = rte_eth_timesync_enable(lport->pid)) != 0) {
             printf("Warning: rte_eth_timesync_enable() failed: %s\n", rte_strerror(-retval));
             printf("Continuing without Rx/Tx hardware timestamping\n");
-            _bclr(HW_RX_TIMESTAMP);
-            _bclr(HW_TX_TIMESTAMP);
+            _bclr(HW_TIMESTAMP);
         } else {
-            if (_btst(HW_RX_TIMESTAMP))
-                printf("  Rx Hardware timestamping enabled on port %u\n", lport->pid);
+            if (_btst(HW_TIMESTAMP)) {
+                printf("  Rx/Tx Hardware timestamping enabled on port %u\n", lport->pid);
 
-            if (_btst(HW_TX_TIMESTAMP)) {
-                printf("  Tx Hardware timestamping enabled on port %u\n", lport->pid);
                 // Clear any stale TX timestamp from hardware
                 struct timespec ts = {0};
                 rte_eth_timesync_read_tx_timestamp(lport->pid, &ts);

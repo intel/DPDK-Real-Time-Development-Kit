@@ -22,8 +22,7 @@ print_app_usage(const char *prgname)
     printf("  Optional:\n");
     printf("    -c | --client IP:port     Enable Client mode <IP:port> for client mode only\n");
     printf("    -d | --dst-mac MAC        Destination MAC address (default: FF:FF:FF:FF:FF:FF)\n");
-	printf("    -R | --hw-rx-timestamp    Enable Rx timestamping (Default Disabled)\n");
-    printf("    -L | --hw-launch-time     Enable Tx LaunchTime timestamping (Default Disabled)\n");
+	printf("    -H | --hw-timestamp       Enable Rx/Tx timestamping (Default Disabled)\n");
     printf("    -T | --hw-tx-timestamp    Enable Tx IEEE1588 timestamping (Default Disabled)\n");
 	printf("    -S | --sw-timestamp       Enable software timestamping (Default Disabled)\n");
     printf("    -D | --debug              Enable debug mode (Default Disabled)\n");
@@ -62,15 +61,14 @@ parse_args(int argc, char **argv)
 		{"client", required_argument, 0, 'c'}, // Used for client mode only
 		{"dst-mac", required_argument, 0, 'd'},
 		{"promiscuous", no_argument, 0, 'P'},
-		{"hw-rx-timestamp", no_argument, 0, 'R'},
-		{"hw-tx-timestamp", no_argument, 0, 'T'},
+		{"hw-timestamp", no_argument, 0, 'H'},
 		{"sw-timestamp", no_argument, 0, 'S'},
 		{"debug", no_argument, 0, 'D'},
 		{"help", no_argument, 0, 'h'},
 		{NULL, 0, 0, 0}
     };
     // clang-format on
-    const char *short_options = "t:l:c:d:PRTSDh";
+    const char *short_options = "t:l:c:d:PHSDh";
     argvopt                   = argv;
 
     pinfo->dst_mac_str = strdup("FF:FF:FF:FF:FF:FF");
@@ -116,13 +114,9 @@ parse_args(int argc, char **argv)
             _bset(PROMISCUOUS);
             printf(">> Promiscuous Mode Enabled\n");
             break;
-        case 'R':        // Hardware Rx timestamping
-            _bset(HW_RX_TIMESTAMP);
-            printf(">> Hardware RX Timestamping Enabled\n");
-            break;
-        case 'T':        // Hardware Tx timestamping IEEE1588
-            _bset(HW_TX_TIMESTAMP);
-            printf(">> Hardware TX IEEE1588 Timestamping Enabled\n");
+        case 'H':        // Hardware Rx/Tx timestamping
+            _bset(HW_TIMESTAMP);
+            printf(">> Hardware Rx/Tx Timestamping Enabled\n");
             break;
         case 'S':        // Software timestamping
             printf(">> Software Timestamping Selected (No Effect in this version)\n");
