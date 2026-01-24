@@ -145,9 +145,9 @@ port_clock_get_ns(uint16_t pid)
 }
 
 static inline uint64_t
-start_stats_timer(min_avg_max_t *timer)
+start_stats_timer(min_avg_max_t *timer, uint64_t now_ns)
 {
-    timer->start_ns = clock_get_ns();
+    timer->start_ns = now_ns;
 	return timer->start_ns;
 }
 
@@ -155,6 +155,9 @@ static inline void
 end_stats_timer(min_avg_max_t *timer, uint64_t now_ns)
 {
 	uint64_t delta  = now_ns - timer->start_ns;
+
+	if (timer->start_ns == 0)
+		return;
 
 	// Update min/avg/max
 	timer->count++;

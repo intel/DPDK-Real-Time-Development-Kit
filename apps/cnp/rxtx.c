@@ -63,8 +63,8 @@ poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
 
     if ((ret == -1 || ret == -EINVAL || ret == -EAGAIN) && timo == 0) {
         stats->tx_timestamp_timeouts++;
-        //if (_btst(DEBUG_MODE))
-            printf("TX timestamp timeout after %d attempts\n", TX_READ_TIMESTAMP_TIMO);
+        // if (_btst(DEBUG_MODE))
+        printf("TX timestamp timeout after %d attempts\n", TX_READ_TIMESTAMP_TIMO);
     }
 
     return ret;
@@ -100,11 +100,16 @@ tx_timestamping(lport_t *lport)
 
         memset(payload, 0, sizeof(probe_payload_t));
         payload->magic           = rte_cpu_to_be_16(THE_MAGIC);
-        payload->sequence_number = rte_cpu_to_be_32(lport->tx_sequence++);
-        payload->packet_type     = TYPE_PROBE_SEND;
+        payload->packet_type     = rte_cpu_to_be_16(TYPE_PROBE_SEND);
+        payload->sequence_number = rte_cpu_to_be_32(lport->tx_sequence);
+		lport->tx_sequence++;
 
-        payload->T1 = rte_cpu_to_be_64(start_stats_timer(&lport->other_stats.sw_rtt));
-    }
+        payload->T1 =
+            rte_cpu_to_be_64(start_stats_timer(&lport->other_stats.sw_rtt, clock_get_ns()));
+		if (_btst(DEBUG_MODE))
+			printf("Transmit probe seq=%u T1=%'" PRIu64 " ns\n",
+               rte_be_to_cpu_32(payload->sequence_number), rte_be_to_cpu_64(payload->T1));
+	}
 
     m->ol_flags = 0;
 
@@ -119,7 +124,7 @@ tx_timestamping(lport_t *lport)
 
         lport->tx_timestamp = UINT64_MAX;        // Invalidate previous TX timestamp
 
-        start_stats_timer(&lport->other_stats.poll);
+        start_stats_timer(&lport->other_stats.poll, clock_get_ns());
         ret = poll_tx_timestamp(lport->pid, &lport->tx_timestamp, &lport->other_stats);
         if (ret != 0) {
             // Keep previous timestamp on failure
@@ -168,6 +173,8 @@ rx_timestamping(lport_t *lport)
             }
 
             if (_btst(SW_TIMESTAMP)) {
+				uint32_t sequence_number;
+
                 payload = (probe_payload_t *)(rte_pktmbuf_mtod_offset(
                     pkt, char *, sizeof(struct rte_ether_hdr) + sizeof(struct ptpv2_msg)));
 
@@ -177,8 +184,21 @@ rx_timestamping(lport_t *lport)
                     rte_pktmbuf_free(pkt);
                     continue;
                 }
+				sequence_number = rte_be_to_cpu_32(payload->sequence_number);
+				if (sequence_number != lport->rx_sequence) {
+					printf("Out-of-order probe received: seq=%u expected>= %u\n",
+						   sequence_number, lport->rx_sequence);
+					lport->rx_sequence = sequence_number;
+					rte_pktmbuf_free(pkt);
+					continue;
+				}
+				lport->rx_sequence++;
+
                 T1 = rte_be_to_cpu_64(payload->T1);
-                end_stats_timer(&lport->other_stats.sw_rtt, T1);
+				if (_btst(DEBUG_MODE))
+	                printf("Received probe seq=%u T1=%'" PRIu64 " Now=%'" PRIu64 " ns\n",
+                       rte_be_to_cpu_32(payload->sequence_number), T1, lport->other_stats.sw_rtt.start_ns);
+                end_stats_timer(&lport->other_stats.sw_rtt, clock_get_ns());
             }
 
             if (_btst(HW_TIMESTAMP)) {
@@ -201,7 +221,7 @@ rx_timestamping(lport_t *lport)
                             rte_pktmbuf_free(pkt);
                             continue;
                         } else
-							end_stats_timer(&lport->other_stats.hw_rtt, rx_timestamp);
+                            end_stats_timer(&lport->other_stats.hw_rtt, rx_timestamp);
                     }
                 } else
                     lport->other_stats.rx_no_timestamp++;

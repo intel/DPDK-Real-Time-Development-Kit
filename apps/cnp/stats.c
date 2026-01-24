@@ -23,6 +23,8 @@ reset_stats(void)
     lport->other_stats.sw_rtt.min_ns = 1000000UL;
     lport->other_stats.hw_rtt.min_ns = 1000000UL;
     lport->other_stats.poll.min_ns   = 1000000UL;
+    lport->other_stats.poll.max_ns   = 0UL;
+    lport->other_stats.poll.max_ns   = 0UL;
 }
 
 static inline void
@@ -175,7 +177,7 @@ print_stats(void)
     print_rxtx_pps();
     print_min_avg_max(&lport->other_stats.sw_rtt, "SW RTT");
     print_min_avg_max(&lport->other_stats.hw_rtt, "HW RTT");
-    print_min_avg_max(&lport->other_stats.poll, "Poll");
+    print_min_avg_max(&lport->other_stats.poll, "  TX TS Poll");
     print_total_packets();
     print_errors();
     if (_btst(HW_TIMESTAMP)) {
