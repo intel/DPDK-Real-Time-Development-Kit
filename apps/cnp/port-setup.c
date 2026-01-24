@@ -73,7 +73,7 @@ __init_port_configure(lport_t *lport)
 
     if (*lport->dev_info.dev_flags & RTE_ETH_DEV_INTR_LSC) {
         printf("    Supports Link Status Change interrupts\n");
-        lport->port_conf.intr_conf.lsc = 0;        // Disable for now
+        lport->port_conf.intr_conf.lsc = 1;
     }
 
     if (lport->dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE) {
@@ -86,7 +86,8 @@ __init_port_configure(lport_t *lport)
             printf("    Supports Rx/Tx hardware timestamping\n");
             lport->port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
         } else {
-            printf("    Warning: Port %u does not support Rx/Tx hardware timestamping\n", lport->pid);
+            printf("    Warning: Port %u does not support Rx/Tx hardware timestamping\n",
+                   lport->pid);
             _bclr(HW_TIMESTAMP);
         }
     } else {
@@ -170,7 +171,7 @@ __init_rx_queues(lport_t *lport)
     for (uint16_t q = 0; q < lport->rx_queues; q++) {
         struct rte_eth_rxconf rxconf;
 
-		memset(&rxconf, 0, sizeof(rxconf));
+        memset(&rxconf, 0, sizeof(rxconf));
         rxconf                   = lport->dev_info.default_rxconf;
         rxconf.offloads          = lport->port_conf.rxmode.offloads;
         rxconf.rx_thresh.pthresh = 0;
@@ -193,7 +194,7 @@ __init_tx_queues(lport_t *lport)
     for (uint16_t q = 0; q < lport->tx_queues; q++) {
         struct rte_eth_txconf txconf;
 
-		memset(&txconf, 0, sizeof(txconf));
+        memset(&txconf, 0, sizeof(txconf));
         txconf                   = lport->dev_info.default_txconf;
         txconf.offloads          = lport->port_conf.txmode.offloads;
         txconf.tx_thresh.pthresh = 0;
@@ -203,7 +204,7 @@ __init_tx_queues(lport_t *lport)
         printf("  TX queue %2u setup... offloads 0x%08lx\n", q, txconf.offloads);
 
         if (rte_eth_tx_queue_setup(lport->pid, q, lport->nb_txd, lport->sid, &txconf) < 0)
-			return -1;
+            return -1;
     }
     return 0;
 }
@@ -261,13 +262,11 @@ __init_enable_timestamping(lport_t *lport)
             printf("Continuing without Rx/Tx hardware timestamping\n");
             _bclr(HW_TIMESTAMP);
         } else {
-            if (_btst(HW_TIMESTAMP)) {
-                printf("  Rx/Tx Hardware timestamping enabled on port %u\n", lport->pid);
+            printf("  Rx/Tx Hardware timestamping enabled on port %u\n", lport->pid);
 
-                // Clear any stale TX timestamp from hardware
-                struct timespec ts = {0};
-                rte_eth_timesync_read_tx_timestamp(lport->pid, &ts);
-            }
+            // Clear any stale TX timestamp from hardware
+            struct timespec ts = {0};
+            rte_eth_timesync_read_tx_timestamp(lport->pid, &ts);
         }
     }
     return 0;
@@ -318,10 +317,10 @@ port_init(lport_t *lport)
 		__init_mempools,
 		__init_rx_queues,
 		__init_tx_queues,
+		__init_enable_timestamping,
 		__init_macaddr,
 		__init_set_ptypes,
 		__init_start_device,
-		__init_enable_timestamping,
 		__init_promiscuous,
 		__init_timestamp_fields,
 		NULL

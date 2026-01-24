@@ -154,8 +154,7 @@ start_stats_timer(min_avg_max_t *timer)
 static inline void
 end_stats_timer(min_avg_max_t *timer, uint64_t now_ns)
 {
-	uint64_t end_ns = now_ns;
-	uint64_t delta  = end_ns - timer->start_ns;
+	uint64_t delta  = now_ns - timer->start_ns;
 
 	// Update min/avg/max
 	timer->count++;

@@ -63,7 +63,7 @@ poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
 
     if ((ret == -1 || ret == -EINVAL || ret == -EAGAIN) && timo == 0) {
         stats->tx_timestamp_timeouts++;
-        if (_btst(DEBUG_MODE))
+        //if (_btst(DEBUG_MODE))
             printf("TX timestamp timeout after %d attempts\n", TX_READ_TIMESTAMP_TIMO);
     }
 
