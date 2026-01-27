@@ -82,13 +82,8 @@ __init_port_configure(lport_t *lport)
     }
 
     if (lport->dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP) {
-        if (_btst(HW_TIMESTAMP)) {
-            printf("    Supports Rx/Tx hardware timestamping\n");
-            lport->port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
-        } else {
-            printf("    Warning: Port %u does not support Rx/Tx hardware timestamping\n", lport->pid);
-            _bclr(HW_TIMESTAMP);
-        }
+        printf("    Supports Rx/Tx hardware timestamping\n");
+        lport->port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
     } else {
         printf("    Warning: Port %u does not support Rx/Tx hardware timestamping\n", lport->pid);
         _bclr(HW_TIMESTAMP);
@@ -316,10 +311,10 @@ port_init(lport_t *lport)
 		__init_mempools,
 		__init_rx_queues,
 		__init_tx_queues,
-		__init_enable_timestamping,
 		__init_macaddr,
 		__init_set_ptypes,
 		__init_start_device,
+		__init_enable_timestamping,
 		__init_promiscuous,
 		__init_timestamp_fields,
 		NULL
