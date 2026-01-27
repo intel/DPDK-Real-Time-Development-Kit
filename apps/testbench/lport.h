@@ -154,7 +154,7 @@ lport_make(uint16_t pid, uint16_t qid)
 static inline char *
 lport_format(lport_id_t id)
 {
-    static char buf[16];
+    static __thread char buf[16];
     snprintf(buf, sizeof(buf), "%u:%u", lport2pid(id), lport2qid(id));
     return buf;
 }
@@ -197,7 +197,7 @@ lport_link_string(lport_id_t lport, char *buff, uint32_t len)
     if (!lport_link_get(lport, &link))
         snprintf(buff, len - 1, "<Down>");
     else
-        snprintf(buff, len - 1, "<UP-%'d-%s>", link.link_speed,
+        snprintf(buff, len - 1, "<UP-%'u-%s>", link.link_speed,
                  (link.link_duplex == RTE_ETH_LINK_FULL_DUPLEX) ? "FD" : "HD");
     return buff;
 }

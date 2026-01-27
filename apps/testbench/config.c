@@ -331,14 +331,13 @@ config_read_from_file(const char *config_file)
      * TAI. That has to be re-done by using the user provided clock id.
      */
     if (app_config.application_clock_id != CLOCK_TAI && !base_time_seen) {
-        struct timespec current;
-
-        clock_gettime(app_config.application_clock_id, &current);
+        /* TODO: recalculate base time using application_clock_id */
     }
 
     ret = 0;
 
 err_parse:
+    free(key);
     yaml_token_delete(&token);
     yaml_parser_delete(&parser);
 
@@ -364,7 +363,7 @@ application_config(void)
     if (app_config.application_link_speed == RTE_ETH_SPEED_NUM_UNKNOWN)
         printf("   LinkSpeed=%s\n", "AutoNeg");
     else
-        printf("   LinkSpeed=%'dMbps\n", app_config.application_link_speed);
+        printf("   LinkSpeed=%'uMbps\n", app_config.application_link_speed);
     printf("   LinkHalfDuplex=%s\n", app_config.application_link_half_duplex ? "Half" : "Full");
     printf("   WaitTimeBeforeStart=%'u\n", app_config.application_wait_time_before_start);
 }
@@ -398,8 +397,8 @@ tsn_high_config(void)
         printf("   SecurityMode=%s\n", security_mode_to_string(app_config.tsn_high_security_mode));
         printf("   SecurityAlgorithm=%s\n",
                security_algorithm_to_string(app_config.tsn_high_security_algorithm));
-        printf("   SecurityKey=%s\n", app_config.tsn_high_security_key);
-        printf("   SecurityIvPrefix=%s\n", app_config.tsn_high_security_iv_prefix);
+        printf("   SecurityKey=<set>\n");
+        printf("   SecurityIvPrefix=<set>\n");
         printf("   LPortID=%s\n", lport_format(app_config.tsn_high_lport_id));
         printf("   ThreadCpu=%d\n", app_config.tsn_high_thread_cpu);
         printf("   Destination=");
@@ -427,12 +426,12 @@ tsn_low_config(void)
         printf("   SecurityMode=%s\n", security_mode_to_string(app_config.tsn_low_security_mode));
         printf("   SecurityAlgorithm=%s\n",
                security_algorithm_to_string(app_config.tsn_low_security_algorithm));
-        printf("   SecurityKey=%s\n", app_config.tsn_low_security_key);
-        printf("   SecurityIvPrefix=%s\n", app_config.tsn_low_security_iv_prefix);
+        printf("   SecurityKey=<set>\n");
+        printf("   SecurityIvPrefix=<set>\n");
         printf("   LPortID=%s\n", lport_format(app_config.tsn_low_lport_id));
         printf("   ThreadCpu=%d\n", app_config.tsn_low_thread_cpu);
         printf("   Destination=");
-        print_mac_address(app_config.tsn_high_destination);
+        print_mac_address(app_config.tsn_low_destination);
         printf("\n");
     } else
         printf("   ** Disabled **\n");
@@ -454,8 +453,8 @@ rtc_config(void)
         printf("   SecurityMode=%s\n", security_mode_to_string(app_config.rtc_security_mode));
         printf("   SecurityAlgorithm=%s\n",
                security_algorithm_to_string(app_config.rtc_security_algorithm));
-        printf("   SecurityKey=%s\n", app_config.rtc_security_key);
-        printf("   SecurityIvPrefix=%s\n", app_config.rtc_security_iv_prefix);
+        printf("   SecurityKey=<set>\n");
+        printf("   SecurityIvPrefix=<set>\n");
         printf("   LPortID=%s\n", lport_format(app_config.rtc_lport_id));
         printf("   ThreadCpu=%d\n", app_config.rtc_thread_cpu);
         printf("   Destination=");
@@ -482,8 +481,8 @@ rta_config(void)
         printf("   SecurityMode=%s\n", security_mode_to_string(app_config.rta_security_mode));
         printf("   SecurityAlgorithm=%s\n",
                security_algorithm_to_string(app_config.rta_security_algorithm));
-        printf("   SecurityKey=%s\n", app_config.rta_security_key);
-        printf("   SecurityIvPrefix=%s\n", app_config.rta_security_iv_prefix);
+        printf("   SecurityKey=<set>\n");
+        printf("   SecurityIvPrefix=<set>\n");
         printf("   LPortID=%s\n", lport_format(app_config.rta_lport_id));
         printf("   ThreadCpu=%d\n", app_config.rta_thread_cpu);
         printf("   Destination=");
@@ -701,11 +700,11 @@ config_print_values(void)
 static int
 config_set_defaults(void)
 {
-    static unsigned char default_debug_monitor_destination[] = {0x44, 0x44, 0x44, 0x44, 0x44, 0x44};
-    static unsigned char default_lldp_destination[]          = {0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e};
-    static unsigned char default_udp_destination[]           = {0xa4, 0xa2, 0xc2, 0x00, 0x00, 0xee};
-    static unsigned char default_destination[]               = {0xa8, 0xa1, 0x59, 0x2c, 0xa8, 0xdb};
-    static unsigned char default_dcp_identify[]              = {0x01, 0x0e, 0xcf, 0x00, 0x00, 0x00};
+    static const unsigned char default_debug_monitor_destination[] = {0x44, 0x44, 0x44, 0x44, 0x44, 0x44};
+    static const unsigned char default_lldp_destination[]          = {0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e};
+    static const unsigned char default_udp_destination[]           = {0xa4, 0xa2, 0xc2, 0x00, 0x00, 0xee};
+    static const unsigned char default_destination[]               = {0xa8, 0xa1, 0x59, 0x2c, 0xa8, 0xdb};
+    static const unsigned char default_dcp_identify[]              = {0x01, 0x0e, 0xcf, 0x00, 0x00, 0x00};
     static const char *default_log_via_mqtt_measurement_name = "testbench";
     static const char *default_udp_high_destination          = "192.168.2.121";
     static const char *default_udp_high_source               = "192.168.2.120";
@@ -1124,45 +1123,73 @@ config_sanity_check(void)
 }
 
 static void
+scrub_and_free(char **ptr, size_t len)
+{
+    if (*ptr) {
+        explicit_bzero(*ptr, len);
+        free(*ptr);
+        *ptr = NULL;
+    }
+}
+
+static void
 __config_free(void)
 {
     free(app_config.tsn_high_payload_pattern);
-    free(app_config.tsn_high_security_key);
-    free(app_config.tsn_high_security_iv_prefix);
+    app_config.tsn_high_payload_pattern = NULL;
+    scrub_and_free(&app_config.tsn_high_security_key, app_config.tsn_high_security_key_length);
+    scrub_and_free(&app_config.tsn_high_security_iv_prefix, app_config.tsn_high_security_iv_prefix_length);
 
     free(app_config.tsn_low_payload_pattern);
-    free(app_config.tsn_low_security_key);
-    free(app_config.tsn_low_security_iv_prefix);
+    app_config.tsn_low_payload_pattern = NULL;
+    scrub_and_free(&app_config.tsn_low_security_key, app_config.tsn_low_security_key_length);
+    scrub_and_free(&app_config.tsn_low_security_iv_prefix, app_config.tsn_low_security_iv_prefix_length);
 
     free(app_config.rtc_payload_pattern);
-    free(app_config.rtc_security_key);
-    free(app_config.rtc_security_iv_prefix);
+    app_config.rtc_payload_pattern = NULL;
+    scrub_and_free(&app_config.rtc_security_key, app_config.rtc_security_key_length);
+    scrub_and_free(&app_config.rtc_security_iv_prefix, app_config.rtc_security_iv_prefix_length);
 
     free(app_config.rta_payload_pattern);
-    free(app_config.rta_security_key);
-    free(app_config.rta_security_iv_prefix);
+    app_config.rta_payload_pattern = NULL;
+    scrub_and_free(&app_config.rta_security_key, app_config.rta_security_key_length);
+    scrub_and_free(&app_config.rta_security_iv_prefix, app_config.rta_security_iv_prefix_length);
 
     free(app_config.dcp_payload_pattern);
+    app_config.dcp_payload_pattern = NULL;
 
     free(app_config.lldp_payload_pattern);
+    app_config.lldp_payload_pattern = NULL;
 
     free(app_config.udp_high_payload_pattern);
+    app_config.udp_high_payload_pattern = NULL;
     free(app_config.udp_high_destination);
+    app_config.udp_high_destination = NULL;
     free(app_config.udp_high_source);
+    app_config.udp_high_source = NULL;
 
     free(app_config.udp_low_payload_pattern);
+    app_config.udp_low_payload_pattern = NULL;
     free(app_config.udp_low_destination);
+    app_config.udp_low_destination = NULL;
     free(app_config.udp_low_source);
+    app_config.udp_low_source = NULL;
 
     free(app_config.l2_payload_pattern);
+    app_config.l2_payload_pattern = NULL;
 
     free(app_config.stats_histogram_file);
+    app_config.stats_histogram_file = NULL;
 
     free(app_config.log_file);
+    app_config.log_file = NULL;
     free(app_config.log_level);
+    app_config.log_level = NULL;
 
     free(app_config.log_via_mqtt_broker_ip);
+    app_config.log_via_mqtt_broker_ip = NULL;
     free(app_config.log_via_mqtt_measurement_name);
+    app_config.log_via_mqtt_measurement_name = NULL;
 }
 
 static int

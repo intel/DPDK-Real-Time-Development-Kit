@@ -1,24 +1,28 @@
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- Copyright(c) 2025 Intel Corporation -->
+
 # Real-Time Development Kit (RTDK)
+
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
 
 <img src="./figures/launch-time.png" width="250" alt="LTTT Logo">
 
-The Real-Time Development Kit (RTDK) is a comprehensive framework designed to measure network and compute performance of real-time applications across diverse environments. It provides developers with a suite of utilities and configurations to ensure their applications meet the stringent performance requirements of real-time systems.
-
-RTDK comprises three core components: a primary DPDK application, an automated test case framework, and a Docker Compose configuration that enables statistical visualization through Grafana. While traditional DPDK applications are typically optimized for maximum throughput, RTDK distinguishes itself by prioritizing ultra-low latency performance.
+The Real-Time Development Kit (RTDK) is a comprehensive framework designed to measure network and compute performance of real-time applications across diverse environments. It provides developers with a suite of applications and configurations to ensure their applications meet the stringent performance requirements of real-time systems.
 
 The RTDK build system has been enhanced to automatically clone, patch, build, and install DPDK from source into a local directory within the project. This ensures that all developers use the same DPDK version with the necessary patches applied, eliminating discrepancies caused by differing system-installed DPDK versions.
 
 The repository includes three main applications:
-
-- **Real-time Application Testing Tool (RATT)**: A utility for real-time application testing and telemetry.
+- **Real-time Application Testing Tool (RATT)**: A utility for real-time application testing and telemetry. While traditional DPDK applications are typically optimized for maximum throughput, RATT distinguishes itself by prioritizing ultra-low latency performance.
 - **Launch-Time Testing Tool (LTTT)**: A DPDK-based application for precise packet transmission and reception timing.
 - **TSN Testbench (TSN-TestBench)**: A Linux-based application for evaluating Time-Sensitive Networking (TSN) performance.
+
+Along with the applications, RTDK provides an example Docker Compose configuration that enables statistical visualization through a TIG stack. 
 
 ## Features
 
 - **Comprehensive Platform Support**: RTDK operates seamlessly across multiple deployment environments, including bare metal servers, VMware virtualized infrastructure, and cloud platforms, ensuring consistent testing capabilities regardless of your infrastructure setup.
 - **Streamlined Configuration Management**: Effortlessly create, manage, and deploy tailored configurations for diverse testing scenarios, enabling rapid adaptation to different performance requirements and test conditions.
-- **Real-time Performance Monitoring & Diagnostics**: Continuously monitor application performance with visibility into system bottlenecks and optimization opportunities. RTDK's analytics help identify issues across the entire stack including:
+- **Real-time Performance Monitoring & Diagnostics**: Continuously monitor application performance with visibility into system bottlenecks and optimization opportunities. RTDK's analytics help identify issues across the entire stack such as:
 - **Hardware-level problems**: High PCIe read latency, memory bandwidth constraints, etc,
 - **Firmware misconfigurations**: ASPM (Active State Power Management) settings, power management policies, etc.
 - **OS-level issues**: Incorrect CPU core isolation, sub-optimal interrupt handling, scheduler conflicts, etc.
@@ -30,7 +34,7 @@ The repository includes three main applications:
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/intel-innersource/applications.dpdk.rt.rtdk.git rtdk
+   git clone "TODO:ADD REPO ADDRESS HERE" rtdk
    cd rtdk
    ```
 
@@ -68,7 +72,6 @@ The repository includes three main applications:
    ```
 
    For detailed build instructions and Makefile options, see [doc/MAKEFILE.md](doc/MAKEFILE.md).
-   For Meson-specific details, see [MESON_BUILD.md](MESON_BUILD.md).
 
 3. Configure your testing environment by modifying the configuration files in the `configs/` directory.
 
@@ -126,10 +129,46 @@ The repository includes three main applications:
    ### Application-Specific Documentation
 
    For detailed usage instructions for each application, see:
-   - Launch-Time Testing Tool: `apps/launch-time/README-launch-time.md`
+   - Real-time Application Testing Tool: `apps/ratt/README.md`
+   - Launch-Time Testing Tool: `apps/launch-time/README.md`
    - TSN Testbench: `apps/testbench/README.md`
    - Configuration files: `configs/README-configs.md`
 
+## Prerequisites
+
+The following system packages are required:
+
+| Dependency | Required | Notes |
+|-----------|----------|-------|
+| GCC or Clang | Yes | C compiler with C99 support |
+| Meson (>= 1.5.0) | Yes | Build system |
+| Ninja | Yes | Build backend |
+| Python 3 | Yes | Required by Meson |
+| pkg-config | Yes | Dependency detection |
+| OpenSSL (libssl-dev) | Yes | Cryptographic functions |
+| libyaml (libyaml-dev) | Yes | YAML configuration parsing |
+| libmosquitto (libmosquitto-dev) | No | MQTT telemetry (disable with `ENABLE_MQTT=false`) |
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install build-essential meson ninja-build pkg-config libssl-dev libyaml-dev libmosquitto-dev
+```
+
+**Fedora/RHEL:**
+```bash
+sudo dnf install gcc meson ninja-build pkgconfig openssl-devel libyaml-devel mosquitto-devel
+```
+
 ## Contributing
 
-We welcome contributions from the community! If you have suggestions for improving LTTT or want to add new features, please submit a pull request.
+We welcome contributions from the community! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a pull request.
+
+## License
+
+This project is licensed under the BSD-3-Clause License. See [LICENSE](LICENSE) for details.
+
+The TSN Testbench component (`apps/testbench/`) is licensed under BSD-2-Clause — see [apps/testbench/LICENSE](apps/testbench/LICENSE).
+
+## Security
+
+To report a security vulnerability, please see [SECURITY.md](SECURITY.md).

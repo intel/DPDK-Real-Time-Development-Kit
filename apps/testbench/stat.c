@@ -152,18 +152,15 @@ stats_reset_stats(struct statistics *stats)
 {
     memset(stats, 0, sizeof(struct statistics));
 
+    stats->round_trip_min = USEC_PER_SEC / 4;
+    stats->oneway_min     = USEC_PER_SEC / 4;
+
     for (int i = 0; i < NUM_FRAME_TYPES; i++) {
-        stats->round_trip_min = USEC_PER_SEC / 4;
-        stats->round_trip_max = 0;
-        stats->oneway_min     = USEC_PER_SEC / 4;
-        stats->oneway_max     = 0;
+        struct statistics *per_period = &stat_private.statistics_per_period[i];
 
-        stats = &stat_private.statistics_per_period[i];
-
-        stats->round_trip_min = USEC_PER_SEC / 4;
-        stats->round_trip_max = 0;
-        stats->oneway_min     = USEC_PER_SEC / 4;
-        stats->oneway_max     = 0;
+        memset(per_period, 0, sizeof(struct statistics));
+        per_period->round_trip_min = USEC_PER_SEC / 4;
+        per_period->oneway_min     = USEC_PER_SEC / 4;
     }
 }
 

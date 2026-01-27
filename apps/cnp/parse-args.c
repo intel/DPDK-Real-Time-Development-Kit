@@ -2,12 +2,9 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "cnp-tuning.h"
+
+#include <errno.h>
 
 void
 print_app_usage(const char *prgname)
@@ -23,7 +20,7 @@ print_app_usage(const char *prgname)
     printf("    -c | --client IP:port     Enable Client mode <IP:port> for client mode only\n");
     printf("    -d | --dst-mac MAC        Destination MAC address (default: FF:FF:FF:FF:FF:FF)\n");
 	printf("    -H | --hw-timestamp       Enable Rx/Tx timestamping (Default Disabled)\n");
-    printf("    -T | --hw-tx-timestamp    Enable Tx IEEE1588 timestamping (Default Disabled)\n");
+
 	printf("    -S | --sw-timestamp       Enable software timestamping (Default Disabled)\n");
     printf("    -D | --debug              Enable debug mode (Default Disabled)\n");
     printf("    -P | --promiscuous        Enable promiscuous mode (Default Disabled)\n");
@@ -72,6 +69,8 @@ parse_args(int argc, char **argv)
     argvopt                   = argv;
 
     pinfo->dst_mac_str = strdup("FF:FF:FF:FF:FF:FF");
+    if (!pinfo->dst_mac_str)
+        rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
 
     // Parse the command line options.
     while ((opt = getopt_long(argc, argvopt, short_options, lgopts, &option_index)) != EOF) {
@@ -82,15 +81,27 @@ parse_args(int argc, char **argv)
                 rte_exit(EXIT_FAILURE, "Invalid client IP:port format\n");
             free(pinfo->client_addr_str);
             pinfo->client_addr_str = strdup(optarg);
+            if (!pinfo->client_addr_str)
+                rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
             printf(">> Client Mode Enabled, Remote Address Set To: %s\n", pinfo->client_addr_str);
             pinfo->client_mode = true;
             break;
-        case 't':        // tx-interval
-            pinfo->tx_interval_ns = strtoul(optarg, NULL, 0);
+        case 't': {      // tx-interval
+            char *endptr;
+            errno = 0;
+            pinfo->tx_interval_ns = strtoul(optarg, &endptr, 0);
+            if (errno != 0 || *endptr != '\0' || endptr == optarg)
+                rte_exit(EXIT_FAILURE, "Error: Invalid tx-interval value '%s'\n", optarg);
             printf(">> TX Interval Set To: %" PRIu64 " ns\n", pinfo->tx_interval_ns);
+        }
             break;
-        case 'l':        // pkt-length
-            pinfo->pkt_length = atoi(optarg);
+        case 'l': {      // pkt-length
+            char *endptr;
+            errno = 0;
+            unsigned long val = strtoul(optarg, &endptr, 0);
+            if (errno != 0 || *endptr != '\0' || endptr == optarg || val > UINT16_MAX)
+                rte_exit(EXIT_FAILURE, "Error: Invalid pkt-length value '%s'\n", optarg);
+            pinfo->pkt_length = (uint16_t)val;
 
             if (pinfo->pkt_length > MAX_PKT_LENGTH)
                 pinfo->pkt_length = MAX_PKT_LENGTH;
@@ -100,10 +111,13 @@ parse_args(int argc, char **argv)
             pinfo->pkt_length -= FCS_SIZE;        // remove the FCS bytes
             printf(">> Packet Length Set To: %d minus %d (FCS) = %u bytes\n",
                    pinfo->pkt_length + FCS_SIZE, FCS_SIZE, pinfo->pkt_length);
+        }
             break;
         case 'd':        // dst-mac
             free(pinfo->dst_mac_str);
             pinfo->dst_mac_str = strdup(optarg);
+            if (!pinfo->dst_mac_str)
+                rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
             printf(">> Destination MAC Set To: %s\n", pinfo->dst_mac_str);
             break;
         case 'D':        // Debug mode

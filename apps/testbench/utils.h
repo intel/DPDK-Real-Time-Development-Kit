@@ -103,8 +103,8 @@ void pthread_error(int ret, const char *message);
 void print_mac_address(const unsigned char *mac_address);
 void print_payload_pattern(const char *payload_pattern, size_t payload_pattern_length);
 
-void hexdump(FILE *f, const char *title, const void *buf, unsigned int len);
-void memdump(FILE *f, const char *title, const void *buf, unsigned int len);
+void hexdump(FILE *f, const char *title, const void *buf, size_t len);
+void memdump(FILE *f, const char *title, const void *buf, size_t len);
 
 #define ARRAY_SIZE(x)   (sizeof(x) / sizeof((x)[0]))
 #define PTR_ADD(ptr, x) ((void *)((uintptr_t)(ptr) + (x)))

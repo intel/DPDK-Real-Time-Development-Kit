@@ -7,7 +7,10 @@
 #ifndef _LOGVIAMQTT_H_
 #define _LOGVIAMQTT_H_
 
+#include "app_config.h"
+#ifdef WITH_MQTT
 #include <mosquitto.h>
+#endif
 
 #include <rte_common.h>
 #include <rte_mempool.h>
@@ -23,11 +26,13 @@ enum {
 struct statistics;
 enum stat_frame_type;
 
+#ifdef WITH_MQTT
 struct log_via_mqtt_thread_context {
 	struct mosquitto *mosq;        // MQTT client
 	struct rte_ring *mqtt_ring;    // global ring buffer
 	struct rte_mempool *mqtt_pool; // memory pool for log messages
 };
+#endif
 
 void log_via_mqtt_stats(enum stat_frame_type frame_type, struct statistics *stats);
 

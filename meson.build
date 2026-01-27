@@ -23,6 +23,8 @@ lttt_conf = configuration_data()
 pver = meson.project_version().split('.')
 major_version = '@0@.@1@'.format(pver.get(0), pver.get(1))
 
+cc = meson.get_compiler('c')
+
 # extract all version information into the build configuration
 lttt_conf.set('LTIME_VER_YEAR', pver.get(0).to_int())
 lttt_conf.set('LTIME_VER_MONTH', pver.get(1).to_int())
@@ -52,8 +54,8 @@ dpdk_dep = dependency('libdpdk', required: true)
 threads_dep = dependency('threads', required: true)
 
 # Required dependencies
-openssl_dep = dependency('openssl', required: true)
-yaml_dep = dependency('yaml-0.1', required: true)
+openssl_dep = dependency('openssl', required: false)
+yaml_dep = dependency('yaml-0.1', required: false)
 
 # Optional dependencies
 mosquitto_dep = dependency('libmosquitto', required: get_option('enable_mqtt'))
@@ -73,6 +75,51 @@ endif
 if not get_option('enable_mqtt')
     add_project_arguments('-DDISABLE_MQTT', language: 'c')
 endif
+
+# enable extra warnings and disable any unwanted warnings
+# -Wall is added by default at warning level 1, and -Wextra
+# at warning level 2 (RTDK default)
+global_cflags = [
+        # additional warnings in alphabetical order
+        '-Wcast-qual',
+        '-Wcomma',
+        '-Wdeprecated',
+        '-Wformat',
+        '-Wformat-nonliteral',
+        '-Wformat-security',
+        '-Wmissing-declarations',
+        '-Wmissing-prototypes',
+        '-Wnested-externs',
+        '-Wold-style-definition',
+        '-Wpointer-arith',
+        '-Wsign-compare',
+        '-Wstrict-prototypes',
+        '-Wundef',
+        '-Wwrite-strings',
+
+        # globally disabled warnings
+        '-Wno-packed-not-aligned',
+        '-Wno-missing-field-initializers',
+
+        # guarantee that all non-initialized parts of structure/union are zero
+        '-fzero-init-padding-bits=all',
+
+        # runtime buffer overflow detection
+        '-D_FORTIFY_SOURCE=2',
+]
+
+if cc.get_id() == 'intel'
+    warning_ids = [181, 188, 2203, 2279, 2557, 3179, 3656]
+    foreach i:warning_ids
+        global_cflags += '-diag-disable=@0@'.format(i)
+    endforeach
+endif
+
+foreach arg: global_cflags
+    if cc.has_argument(arg)
+        add_project_arguments(arg, language: 'c')
+    endif
+endforeach
 
 # Build the main executable
 subdir('apps')

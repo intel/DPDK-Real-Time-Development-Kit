@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include <unistd.h>
 #include "cnp-tuning.h"
 
@@ -88,12 +83,12 @@ keyboard_loop(void)
                 break;
             }
         }
-        sleep_usec(250);
+        sleep_msec(250);
     }
 
     print_stats();        // update the stats one last time
     printf("Quitting ...\n");
     stop_running();
-    sleep_usec(250);
+    sleep_msec(250);
     stdin_restore();
 }

@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #pragma once
 
 #include <stdint.h>

@@ -2,25 +2,19 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "ratt.h"
 #include "log.h"
 #include "mqtt.h"
-#include <rte_hexdump.h>
 
 static struct rte_ipv4_hdr pkt_ip_hdr; /**< IP header of transmitted packets. */
 static struct rte_udp_hdr pkt_udp_hdr; /**< UDP header of tx packets. */
 /* use RFC863 Discard Protocol */
-uint16_t tx_udp_src_port = 9;
-uint16_t tx_udp_dst_port = 9;
+static uint16_t tx_udp_src_port = 9;
+static uint16_t tx_udp_dst_port = 9;
 
 /* use RFC5735 / RFC2544 reserved network test addresses */
-uint32_t tx_ip_src_addr = (198U << 24) | (18 << 16) | (0 << 8) | 1;
-uint32_t tx_ip_dst_addr = (198U << 24) | (18 << 16) | (0 << 8) | 2;
+static uint32_t tx_ip_src_addr = (198U << 24) | (18U << 16) | (0U << 8) | 1U;
+static uint32_t tx_ip_dst_addr = (198U << 24) | (18U << 16) | (0U << 8) | 2U;
 
 #define IP_DEFTTL 64 /* from RFC 1340. */
 
@@ -105,7 +99,7 @@ static inline int
 rx_timestamping(lcore_t *lcore, uint16_t pid, uint16_t qid)
 {
     struct rte_mbuf **mbufs, **pkts;
-    timestamp_t *ts;
+    const timestamp_t *ts;
     uint64_t curr_ns, end_ns, begin_ns = 0;
     uint16_t nb_rx, total_rx, to_recv;
 
@@ -156,7 +150,7 @@ process_packets:
         return 0UL;
     }
 
-    ts = rte_pktmbuf_mtod_offset(mbufs[0], timestamp_t *,
+    ts = rte_pktmbuf_mtod_offset(mbufs[0], const timestamp_t *,
                                  sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr) +
                                      sizeof(struct rte_udp_hdr));
 
@@ -209,7 +203,7 @@ reference_routine(void *arg)
 
             begin_time(&begin_ns);
             if (tx_timestamping(lcore, pid, qid))
-                rte_exit(EXIT_FAILURE, "failed to send packets on port %u", lport->pid);
+                rte_exit(EXIT_FAILURE, "failed to send packets on port %u\n", lport->pid);
             end_time(&lcore->stats.tx_snapshot, begin_ns);
 
             if (rx_timestamping(lcore, pid, qid)) {

@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: BSD-3-Clause
  * Copyright(c) 2025 Intel Corporation
  */
-
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
 #include "launch-time.h"
 #include "rte_version.h"
 
 enum { NAME_WIDTH = 28, COLUMN_WIDTH = 42 };
 typedef enum { DST_MAC, SRC_MAC } mac_type_t;
 
-void
+static void
 reset_stats(void)
 {
     lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
@@ -20,6 +15,7 @@ reset_stats(void)
     memset(&lcore->stats, 0, sizeof(lcore->stats));
     lcore->stats.launch_time.min_ns =
         BIG_NUM;        // Minimum Hardware timestamp time in nanoseconds
+    reset_rx_timestamp();
 }
 
 static inline void
@@ -82,7 +78,7 @@ print_rxtx_pps(void)
 static inline void
 print_errors(void)
 {
-    lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
+    const lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
 
     print_3_numbers("RxMissed/RxError/TxError", lcore->lport.stats.imissed,
                     lcore->lport.stats.ierrors, lcore->lport.stats.oerrors);
@@ -104,7 +100,7 @@ print_mac(mac_type_t type)
 static inline void
 print_total_packets(void)
 {
-    lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
+    const lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
 
     print_2_numbers("Total Rx/Tx Packets", lcore->stats.total_pkts.rx, lcore->stats.total_pkts.tx);
 }
@@ -135,7 +131,8 @@ print_stats(void)
         reset_stats();
     }
 
-    clock_gettime(CLOCK_TAI, &current_time);
+    if (clock_gettime(CLOCK_TAI, &current_time) < 0)
+        memset(&current_time, 0, sizeof(current_time));
 
     // Calculate elapsed time in seconds
     long seconds = current_time.tv_sec - pinfo->start_time.tv_sec;
@@ -193,10 +190,10 @@ print_stats(void)
     mqtt_stats(&lcore->stats, &lcore->lport.stats);
 
     if (strlen(RTE_VER_SUFFIX) == 0)
-        snprintf(version, sizeof(version), "DPDK %d.%02d.%d", rte_version_year(),
+        snprintf(version, sizeof(version), "DPDK %u.%02u.%u", rte_version_year(),
                  rte_version_month(), rte_version_minor());
     else
-        snprintf(version, sizeof(version), "DPDK %d.%02d.%d%s%d", rte_version_year(),
+        snprintf(version, sizeof(version), "DPDK %u.%02u.%u%s%u", rte_version_year(),
                  rte_version_month(), rte_version_minor(), rte_version_suffix(),
                  rte_version_release());
     printf("   [Press q to quit, r to reset stats, c to clear screen] <%s>\n", version);

@@ -70,8 +70,11 @@ log_via_mqtt_init(void)
     mqtt_context.mqtt_pool = rte_mempool_create("logmqtt_pool", LOG_MQTT_MEMPOOL_BUFFER_COUNT,
                                                 LOG_MQTT_MEMPOOL_BUFFER_SIZE, 64, 0, NULL, NULL,
                                                 NULL, NULL, socket_id, 0);
-    if (!mqtt_context.mqtt_pool)
+    if (!mqtt_context.mqtt_pool) {
+        rte_ring_free(mqtt_context.mqtt_ring);
+        mqtt_context.mqtt_ring = NULL;
         return -ENOMEM;
+    }
 
     return 0;
 }
@@ -131,9 +134,13 @@ log_via_mqtt_add_traffic_class(struct mosquitto *mosq, const char *mqtt_base_top
                        "\t{\"Timestamp\" : %" PRIu64 ",\n"
                        "\t \"MeasurementName\" : \"%s\"",
                        "reference", time_ns, mqtt_base_topic_name);
-
-    p += written;
-    stat_message_length -= written;
+    if (written > 0 && (size_t)written < stat_message_length) {
+        p += written;
+        stat_message_length -= written;
+    } else if (written > 0) {
+        p += stat_message_length;
+        stat_message_length = 0;
+    }
 
     written = snprintf(p, stat_message_length,
                        ",\n\t\t\"%s\" : \n\t\t{\n"
@@ -156,14 +163,19 @@ log_via_mqtt_add_traffic_class(struct mosquitto *mosq, const char *mqtt_base_top
                        stat->round_trip_avg, stat->oneway_min, stat->oneway_max, stat->oneway_avg,
                        stat->out_of_order_errors, stat->frame_id_errors, stat->payload_errors,
                        stat->round_trip_outliers, stat->oneway_outliers);
-
-    p += written;
-    stat_message_length -= written;
+    if (written > 0 && (size_t)written < stat_message_length) {
+        p += written;
+        stat_message_length -= written;
+    } else if (written > 0) {
+        p += stat_message_length;
+        stat_message_length = 0;
+    }
 
     written = snprintf(p, stat_message_length, "\t\t\n}\t\n}\n");
-
-    p += written;
-    stat_message_length -= written;
+    if (written > 0 && (size_t)written < stat_message_length) {
+        p += written;
+        stat_message_length -= written;
+    }
 
     result_pub =
         mosquitto_publish(mosq, NULL, "testbench", strlen(stat_message), stat_message, 2, false);
@@ -270,8 +282,11 @@ static void
 log_via_mqtt_thread_free(void)
 {
     if (app_config.log_via_mqtt) {
-        if (mqtt_context.mosq)
+        if (mqtt_context.mosq) {
+            mosquitto_disconnect(mqtt_context.mosq);
+            mosquitto_loop_stop(mqtt_context.mosq, true);
             mosquitto_destroy(mqtt_context.mosq);
+        }
         mosquitto_lib_cleanup();
     }
 }

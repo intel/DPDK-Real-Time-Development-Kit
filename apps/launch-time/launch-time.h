@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #ifndef _LAUNCH_TIME_H_
 #define _LAUNCH_TIME_H_
 
@@ -22,7 +17,9 @@
 #include <termios.h>
 #include <time.h>
 #include <pthread.h>
+#ifndef DISABLE_MQTT
 #include <mosquitto.h>
+#endif
 
 #include <rte_cycles.h>
 #include <rte_eal.h>
@@ -62,7 +59,7 @@ typedef struct {
     lcore_t lcores[RTE_MAX_LCORE];        // Array of lcore structures
     uint64_t launch_interval_ns;          // Launch interval in nanoseconds
     uint16_t mqtt_lcore_id;               // MQTT lcore ID
-    uint16_t worker_lcore_id;             // Worker lcore IDF
+    uint16_t worker_lcore_id;             // Worker lcore ID
     uint16_t delay_sec;                   // Start delay in seconds
     uint16_t burst_count;                 // Burst count for packet transmission
     uint16_t pkt_length;                  // Length of packet minus the FCS
@@ -83,8 +80,6 @@ typedef struct {
 } info_t;
 
 extern info_t *pinfo;
-#define TX_BURST_TIME_NS	60000    // Number ns (60us) to reduce from cycle time to account for TX processing time
-
 typedef int (*timestamping_fn)(lcore_t *lcore, uint16_t pid, uint16_t qid);
 
 enum {                             // Bit values for info_t.flags field
@@ -206,13 +201,19 @@ sleep_usec(uint32_t usec)
         struct timespec wakeup_time;
 
         clock_gettime(CLOCK_TAI, &wakeup_time);
-        wakeup_time.tv_nsec += (uint64_t)(usec * USEC_PER_SEC);
-        if (wakeup_time.tv_nsec > NSEC_PER_SEC) {
+        wakeup_time.tv_nsec += (uint64_t)(usec * 1000UL);
+        while (wakeup_time.tv_nsec >= NSEC_PER_SEC) {
             wakeup_time.tv_nsec -= NSEC_PER_SEC;
             wakeup_time.tv_sec++;
         }
         clock_nanosleep(CLOCK_TAI, TIMER_ABSTIME, &wakeup_time, NULL);
     }
+}
+
+static inline void
+sleep_msec(uint32_t msec)
+{
+    sleep_usec(msec * 1000UL);
 }
 
 static inline void
@@ -223,7 +224,7 @@ sleep_nsec(uint64_t nsec)
 
         clock_gettime(CLOCK_TAI, &wakeup_time);
         wakeup_time.tv_nsec += nsec;
-        if (wakeup_time.tv_nsec > NSEC_PER_SEC) {
+        while (wakeup_time.tv_nsec >= NSEC_PER_SEC) {
             wakeup_time.tv_nsec -= NSEC_PER_SEC;
             wakeup_time.tv_sec++;
         }
@@ -253,7 +254,7 @@ link_status_no_wait(lport_t *lport, char *buff, int len)
             snprintf(buff, len, "<Down>");
     } else {
         if (buff && len > 0)
-            snprintf(buff, len, "<UP-%'d-%s>", link->link_speed,
+            snprintf(buff, len, "<UP-%'u-%s>", link->link_speed,
                      (link->link_duplex == RTE_ETH_LINK_FULL_DUPLEX) ? "FD" : "HD");
     }
 }
@@ -271,10 +272,7 @@ is_link_up(uint16_t pid)
 static inline void
 send_packets(uint16_t pid, uint16_t qid, struct rte_mbuf **mbufs, uint16_t num_mbufs)
 {
-    lcore_t *lcore = (lcore_t *)&pinfo->lcores[rte_lcore_id()];
     uint16_t nb_tx;
-
-	(void)lcore;
 
     do {
         nb_tx = rte_eth_tx_burst(pid, qid, mbufs, num_mbufs);
@@ -283,6 +281,9 @@ send_packets(uint16_t pid, uint16_t qid, struct rte_mbuf **mbufs, uint16_t num_m
             break;
         mbufs += nb_tx;
     } while (is_running());
+
+    if (num_mbufs > 0)
+        rte_pktmbuf_free_bulk(mbufs, num_mbufs);
 }
 
 static inline struct rte_mempool *
@@ -306,42 +307,10 @@ min_avg_max_update(min_avg_max_t *mma, uint64_t ns)
 {
     if (ns < mma->min_ns)
         mma->min_ns = ns;
-    else if (ns > mma->max_ns)
+    if (ns > mma->max_ns)
         mma->max_ns = ns;
     mma->sum_ns += ns;
     mma->count++;
-}
-
-static inline void
-begin_time(uint64_t *begin)
-{
-    *begin = clock_get_ns();
-}
-
-static inline void
-end_time(min_avg_max_t *mma, uint64_t begin)
-{
-    min_avg_max_update(mma, clock_get_ns() - begin);
-}
-
-static inline void
-print_clock(const char *s, const char *s1, uint64_t curr, const char *s2, uint64_t end_cycle)
-{
-    printf("INFO: %s %5s: %'" PRIu64 " >  %5s: %'" PRIu64, s, s1, curr, s2, end_cycle);
-    printf(" Delta:%'8" PRIu64 "\n", (curr > end_cycle) ? curr - end_cycle : end_cycle - curr);
-}
-
-/// Round up to next higher power of 2 (return x if it's already a power of 2).
-static inline int
-pow2roundup(u_int32_t x)
-{
-    --x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    return x + 1;
 }
 
 int parse_args(int argc, char **argv);

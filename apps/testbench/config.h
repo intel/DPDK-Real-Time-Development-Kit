@@ -340,8 +340,14 @@ bool config_sanity_check(void);
                 goto err_parse;                                                                   \
             }                                                                                     \
                                                                                                   \
-            for (i = 0; i < ETH_ALEN; ++i)                                                        \
+            for (i = 0; i < ETH_ALEN; ++i) {                                                      \
+                if (tmp[i] > 255) {                                                               \
+                    fprintf(stderr, "MAC octet %d out of range: %u\n", i, tmp[i]);               \
+                    ret = -EINVAL;                                                                \
+                    goto err_parse;                                                               \
+                }                                                                                 \
                 app_config.var[i] = (unsigned char)tmp[i];                                        \
+            }                                        \
         }                                                                                         \
     } while (0)
 

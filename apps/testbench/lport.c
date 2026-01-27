@@ -24,7 +24,7 @@
 #include "utils.h"
 
 #define RTE_LOGTYPE_LPORT  lport_logtype
-#define LP_LOG(level, ...) RTE_LOG_LINE_PREFIX(level, LPORT, "%s(): ", __func__, __VA_ARGS__)
+#define LP_LOG(level, fmt, ...) RTE_LOG(level, LPORT, "%s(): " fmt "\n", __func__, ##__VA_ARGS__)
 
 RTE_LOG_REGISTER_DEFAULT(lport_logtype, INFO);
 
@@ -312,7 +312,7 @@ lport_port_init(lport_id_t id)
     conf.rxmode.offloads &= lport->dev_info.rx_offload_capa;
 
     if (app_config.application_link_speed != RTE_ETH_SPEED_NUM_UNKNOWN) {
-        LP_LOG(INFO, "Link Speed and duplex: %'dMbps-%s", app_config.application_link_speed,
+        LP_LOG(INFO, "Link Speed and duplex: %'uMbps-%s", app_config.application_link_speed,
                app_config.application_link_half_duplex ? "HD" : "FD");
         conf.link_speeds = rte_eth_speed_bitflag(
             (app_config.application_link_speed == RTE_ETH_SPEED_NUM_UNKNOWN)
@@ -452,6 +452,7 @@ lport_setup(const char *name, lport_id_t id, lport_conf_t *cfg)
 
 err_exit:
     rte_free(lport->lqueues);
+    lport->lqueues = NULL;
     lport_free(lport);
     lport_unlock();
     return -1;
@@ -630,7 +631,7 @@ lport_ctor(void)
     memset(&lport_info, 0, sizeof(lport_info));
     linfo = &lport_info;
 
-    fprintf(stderr, "Found %'d available Ethernet ports, number of lcores %'d\n",
+    fprintf(stderr, "Found %'u available Ethernet ports, number of lcores %'u\n",
             rte_eth_dev_count_avail(), rte_lcore_count());
 
     return 0;

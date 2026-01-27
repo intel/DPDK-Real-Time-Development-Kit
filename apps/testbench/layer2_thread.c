@@ -284,7 +284,7 @@ l2_rx_thread_routine(void *data, bool signaled __rte_unused)
     if (do_once(&thread_context->rx_do_once))
         thread_timer_set(thread_context, RX_TIMER, app_config.application_base_cycle_time_ns);
     else {
-        int burst_sz = (int)app_config.dcp_num_frames_per_cycle;
+        int burst_sz = (int)app_config.l2_num_frames_per_cycle;
         uint64_t timo =
             (app_config.application_tx_base_offset_ns - app_config.application_rx_base_offset_ns);
 

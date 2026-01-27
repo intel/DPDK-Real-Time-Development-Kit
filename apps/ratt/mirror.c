@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "ratt.h"
 #include "mqtt.h"
 
@@ -48,9 +43,7 @@ mirror_routine(void *arg)
         struct rte_mbuf **pkts, **mbufs;
         uint16_t nb_rx, to_recv, total_rx;
 
-        mbufs    = lcore->rx_mbufs;
-        to_recv  = pinfo->burst_count;
-        total_rx = 0;
+        mbufs = lcore->rx_mbufs;
 
         while (is_running()) {
             pkts     = mbufs;
@@ -67,7 +60,6 @@ mirror_routine(void *arg)
                         lcore->stats.total_pkts.rx += total_rx;
                         lcore->stats.total_pkts.tx += total_rx;
 						goto record;
-                        continue;
                     }
                 }
             } while (is_running());

@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- Copyright(c) 2025 Intel Corporation -->
+
 # DPDK Build and Installation Process
 
 This document explains how LTTT handles DPDK dependencies.

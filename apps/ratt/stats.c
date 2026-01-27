@@ -2,17 +2,13 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
 #include "ratt.h"
 #include "rte_version.h"
 
 enum { NAME_WIDTH = 33, COLUMN_WIDTH = 42 };
 typedef enum { DST_MAC, SRC_MAC } mac_type_t;
 
-void
+static void
 reset_stats(void)
 {
     lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
@@ -96,7 +92,7 @@ print_link(void)
 static inline void
 print_rtt_cnt(void)
 {
-    lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
+    const lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
 
     print_number("RTT Count", lcore->stats.rtt.count);
 }
@@ -124,7 +120,7 @@ print_rxtx_pps(void)
 static inline void
 print_errors(void)
 {
-    lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
+    const lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
 
     print_3_numbers("RxMissed/RxError/TxError", lcore->lport.stats.imissed,
                     lcore->lport.stats.ierrors, lcore->lport.stats.oerrors);
@@ -133,7 +129,7 @@ print_errors(void)
 static inline void
 print_no_mbufs_timestamp(void)
 {
-    lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
+    const lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
 
     print_2_numbers("No Mbufs/Timestamp", lcore->stats.no_mbufs, lcore->stats.no_timestamp);
 }
@@ -160,7 +156,7 @@ print_driver(const char * name)
 static inline void
 print_id_tx_full(void)
 {
-    lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
+    const lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
 
     print_2_numbers("ID Error/Tx Full", lcore->stats.id_error, lcore->stats.tx_ring_full);
 }
@@ -179,7 +175,7 @@ print_rx_timeout(void)
 static inline void
 print_counts(void)
 {
-    lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
+    const lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
 
     print_3_numbers("RTT/Snapshot/Spike Count", lcore->stats.rtt.count, lcore->stats.snapshot.count,
                     lcore->stats.spike.count);
@@ -188,7 +184,7 @@ print_counts(void)
 static inline void
 print_total_packets(void)
 {
-    lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
+    const lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
 
     print_2_numbers("Total Rx/Tx Packets", lcore->stats.total_pkts.rx, lcore->stats.total_pkts.tx);
 }
@@ -196,7 +192,7 @@ print_total_packets(void)
 static inline void
 print_debug_stats(void)
 {
-    lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
+    const lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
 
     print_3_numbers("Rx min/max/avg ns", lcore->stats.rx_snapshot.min_ns, lcore->stats.rx_snapshot.max_ns,
                     lcore->stats.rx_snapshot.avg_ns);
@@ -231,7 +227,8 @@ print_stats(void)
         reset_stats();
     }
 
-    clock_gettime(CLOCK_TAI, &current_time);
+    if (clock_gettime(CLOCK_TAI, &current_time) < 0)
+        memset(&current_time, 0, sizeof(current_time));
 
     // Calculate elapsed time in seconds
     long seconds = current_time.tv_sec - pinfo->start_time.tv_sec;
@@ -260,7 +257,7 @@ print_stats(void)
     // time per burst in nanoseconds
     double wire_time_ns = ((num_bpb / link_speed) * NSEC_PER_SEC);
 
-    printf("   Wire Time:%'.2f ns, RTT:%'.2f ns, bits %'.0f, Delay: %'3d, Skip:%d\n", wire_time_ns,
+    printf("   Wire Time:%'.2f ns, RTT:%'.2f ns, bits %'.0f, Delay: %'3u, Skip:%u\n", wire_time_ns,
            wire_time_ns * 2.0, num_bpb, pinfo->delay_sec, pinfo->pkt_skip_cnt);
     printf("   Modes(!=not): ");
     printf("%sLogging ", pinfo->log_enabled ? "" : "!");
@@ -319,10 +316,10 @@ print_stats(void)
     }
 
 	if (strlen(RTE_VER_SUFFIX) == 0)
-        snprintf(version, sizeof(version), "RTDK %d.%02d.%d", rte_version_year(),
+        snprintf(version, sizeof(version), "RTDK %u.%02u.%u", rte_version_year(),
                  rte_version_month(), rte_version_minor());
     else
-        snprintf(version, sizeof(version), "RTDK %d.%02d.%d%s%d", rte_version_year(),
+        snprintf(version, sizeof(version), "RTDK %u.%02u.%u%s%u", rte_version_year(),
                  rte_version_month(), rte_version_minor(), rte_version_suffix(),
                  rte_version_release());
     printf("   [Press q to quit, r to reset stats, c to clear screen] <%s>\n", version);

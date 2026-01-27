@@ -1,11 +1,17 @@
 /* SPDX-License-Identifier: BSD-3-Clause
  * Copyright(c) 2025 Intel Corporation
  */
+#include "launch-time.h"
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
+#ifdef DISABLE_MQTT
+
+int mqtt_init(void) { return -1; }
+void mqtt_stats(const stats_t *stats __rte_unused, const struct rte_eth_stats *port_stats __rte_unused) { }
+void mqtt_close(void) { }
+int mqtt_thread_routine(void *data __rte_unused) { return 0; }
+
+#else
+
 #include "log.h"
 #include "mqtt.h"
 
@@ -23,8 +29,17 @@ typedef struct mqtt_info {
 static mqtt_info_t mqtt_info = {0};
 mqtt_info_t *mqtt            = &mqtt_info;
 
+/* Clamp snprintf return to prevent size_t underflow on message_length */
+static inline int
+clamp_written(int written, size_t avail)
+{
+    if (written < 0)
+        return 0;
+    return ((size_t)written > avail) ? (int)avail : written;
+}
+
 void
-mqtt_stats(stats_t *stats, struct rte_eth_stats *port_stats)
+mqtt_stats(const stats_t *stats, const struct rte_eth_stats *port_stats)
 {
     struct mqtt_statistics *internal;
     int ret;
@@ -51,6 +66,10 @@ append_mqtt_stats(char **message, size_t *message_length, const char *name, uint
     int written;
 
     written = snprintf(*message, *message_length, "\t\t\t\"%s\" : %" PRIu64 ",\n", name, value);
+    if (written < 0)
+        return;
+    if ((size_t)written > *message_length)
+        written = *message_length;
 
     *message += written;
     *message_length -= written;
@@ -59,8 +78,8 @@ append_mqtt_stats(char **message, size_t *message_length, const char *name, uint
 static int
 mqtt_add_stats(struct mosquitto *mosq, const char *mqtt_measurement_name)
 {
-    stats_t *stats;
-    struct rte_eth_stats *port;
+    const stats_t *stats;
+    const struct rte_eth_stats *port;
     size_t message_length;
     int written, result_pub, nb_buffs;
     char *p;
@@ -74,10 +93,10 @@ mqtt_add_stats(struct mosquitto *mosq, const char *mqtt_measurement_name)
         return 0;
 
     for (int i = 0; i < nb_buffs; i++) {
-        mqtt_statistics_t *mqtt_stats = mqtt->buffs[i];
+        mqtt_statistics_t *mstats = mqtt->buffs[i];
 
-        stats = &mqtt_stats->stats;
-        port  = &mqtt_stats->port_stats;
+        stats = &mstats->stats;
+        port  = &mstats->port_stats;
 
         p              = mqtt->message;
         p[0]           = '\0';
@@ -89,7 +108,8 @@ mqtt_add_stats(struct mosquitto *mosq, const char *mqtt_measurement_name)
                            "\t\t\"Timestamp\":%" PRIu64 ",\n"
                            "\t\t\"MeasurementName\":\"%s\",\n"
                            "\t\t\"stats\": {\n",
-                           mqtt_stats->timestamp, mqtt_measurement_name);
+                           mstats->timestamp, mqtt_measurement_name);
+        written = clamp_written(written, message_length);
         p += written;
         message_length -= written;
 
@@ -112,10 +132,11 @@ mqtt_add_stats(struct mosquitto *mosq, const char *mqtt_measurement_name)
         // remove last comma and newline (since the last element in the array can't have a comma)
         // and add the newline below
         p -= 2;
-        message_length += written;
+        message_length += 2;
 
         // included first newline here last element above
         written = snprintf(p, message_length, "\n\t\t}\t\t\n\t}\n}\n");
+        written = clamp_written(written, message_length);
         p += written;
         message_length -= written;
 
@@ -220,25 +241,37 @@ mqtt_init(void)
                                     DEFAULT_PRIV_SIZE, NULL, NULL, NULL, NULL, socket_id, 0);
     if (!mqtt->pool) {
         printf("Error: Could not create MQTT log pool\n");
-        return -ENOMEM;
+        goto err_pool;
     }
 
     mqtt->message = calloc(LOG_MQTT_BUFFER_SIZE, sizeof(char));
     if (!mqtt->message) {
         printf("Error: Could not allocate memory for MQTT stats message\n");
-        return -ENOMEM;
+        goto err_message;
     }
 
     return 0;
+
+err_message:
+    rte_mempool_free(mqtt->pool);
+    mqtt->pool = NULL;
+err_pool:
+    rte_ring_free(mqtt->ring);
+    mqtt->ring = NULL;
+    return -ENOMEM;
 }
 
 void
 mqtt_close(void)
 {
     if (_btst(MQTT)) {
+        _bclr(MQTT);
         sleep_nsec(LOG_MQTT_PERIOD_NS * 2UL);        // wait a bit for a flush before closing
-        if (mqtt->mosq)
+        if (mqtt->mosq) {
+            mosquitto_disconnect(mqtt->mosq);
+            mosquitto_loop_stop(mqtt->mosq, true);
             mosquitto_destroy(mqtt->mosq);
+        }
         mosquitto_lib_cleanup();
 
         rte_ring_free(mqtt->ring);
@@ -248,3 +281,5 @@ mqtt_close(void)
         memset(mqtt, 0, sizeof(mqtt_info_t));
     }
 }
+
+#endif /* DISABLE_MQTT */

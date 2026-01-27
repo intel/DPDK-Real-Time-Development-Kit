@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "ratt.h"
 #include "mqtt.h"
 
@@ -155,13 +150,18 @@ port_init(lport_t *lport)
     printf("Port %u MAC %s\n", pid, buff);
 
     // Convert the MAC address string into binary format
-    rte_ether_unformat_addr(pinfo->dest_mac_str, &lport->dst_mac);
+    if (rte_ether_unformat_addr(pinfo->dest_mac_str, &lport->dst_mac) != 0)
+        rte_exit(EXIT_FAILURE, "Error: Invalid destination MAC address '%s'\n",
+                 pinfo->dest_mac_str);
 
     if (rte_eth_dev_set_ptypes(pid, RTE_PTYPE_UNKNOWN, NULL, 0) < 0)
         printf("Port %u, Failed to disable Ptype parsing\n", pid);
 #if HAS_HW_TIMESTAMPING
-    if (pinfo->hw_timestamp_enabled)
-        rte_eth_timesync_enable(pid);
+    if (pinfo->hw_timestamp_enabled) {
+        retval = rte_eth_timesync_enable(pid);
+        if (retval < 0)
+            printf("Port %u, Failed to enable HW timestamping: %s\n", pid, rte_strerror(-retval));
+    }
 #endif
     /* Start the Ethernet port. */
     retval = rte_eth_dev_start(pid);

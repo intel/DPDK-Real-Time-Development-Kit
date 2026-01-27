@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "cnp-tuning.h"
 
 static info_t info = {0};
@@ -30,8 +25,9 @@ main(int argc, char *argv[])
     uint16_t port_id;
     int ret;
 
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
+    if (signal(SIGINT, signal_handler) == SIG_ERR ||
+        signal(SIGTERM, signal_handler) == SIG_ERR)
+        rte_exit(EXIT_FAILURE, "Error: Failed to register signal handler\n");
 
     setlocale(LC_ALL, "");        // Allow for formatted numbers .e.g, 1,000,000
 
@@ -82,6 +78,9 @@ main(int argc, char *argv[])
     keyboard_loop();
 
     print_stats();
+
+    rte_eal_mp_wait_lcore();
+
     if (_btst(DEBUG_MODE)) {
         printf("Final Mempool States:\n");
         rte_mempool_dump(stdout, pinfo->lports[0].tx_mp);
@@ -89,10 +88,10 @@ main(int argc, char *argv[])
     }
     RTE_ETH_FOREACH_DEV(port_id)
     {
-        int ret;
+        int stop_ret;
 
-        if ((ret = rte_eth_dev_stop(port_id)) < 0)
-            printf("rte_eth_dev_stop: err=%d, port=%d, %s\n", ret, port_id, rte_strerror(ret));
+        if ((stop_ret = rte_eth_dev_stop(port_id)) < 0)
+            printf("rte_eth_dev_stop: err=%d, port=%d, %s\n", stop_ret, port_id, rte_strerror(stop_ret));
 
         rte_eth_dev_close(port_id);
     }

@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "ratt.h"
 #include "log.h"
 #include "mqtt.h"
@@ -66,7 +61,8 @@ keyboard_loop(void)
 
     pinfo->screen_clear = true;
 
-	clock_gettime(CLOCK_TAI, &pinfo->start_time);
+	if (clock_gettime(CLOCK_TAI, &pinfo->start_time) < 0)
+		memset(&pinfo->start_time, 0, sizeof(pinfo->start_time));
 
     stdin_setup();
 
@@ -95,12 +91,12 @@ keyboard_loop(void)
                 break;
             }
         }
-        sleep_usec(250);
+        sleep_msec(250);
     }
 leave:
     print_stats(); // update the stats one last time
     stop_running();
-    sleep_usec(250);
+    sleep_msec(250);
     log_close();
     mqtt_close();
     stdin_restore();

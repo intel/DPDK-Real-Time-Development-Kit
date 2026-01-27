@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #ifndef _RATT_H_
 #define _RATT_H_
 
@@ -22,7 +17,9 @@
 #include <termios.h>
 #include <time.h>
 #include <pthread.h>
+#ifndef DISABLE_MQTT
 #include <mosquitto.h>
+#endif
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
@@ -58,7 +55,7 @@ typedef struct lport {
 typedef struct lcore {
     rte_atomic16_t active;             // Flag to indicate if the lcore is active
     lport_t lport;                     // Port associated with the lcore
-    uint64_t end_cycle_ns;             // End cycle time in microseconds
+    uint64_t end_cycle_ns;             // End cycle time in nanoseconds
     uint16_t tx_id;                    // Transmit ID
     uint16_t rx_id;                    // Receive ID
     uint32_t skip_cnt;                 // Number of packets to skip on startup
@@ -72,7 +69,6 @@ typedef struct workload {
     char *file;
     char *func;
     char args[WORKLOAD_MAX_ARGS];
-    uint64_t workload_sequence_counter;
     void *workload_handler;
     int (*workload_function)(int argc, char **argv);
     int workload_argc;
@@ -144,7 +140,6 @@ static inline void
 stop_running(void)
 {
     pinfo->running = false;
-    stdin_restore();
 }
 
 static inline bool
@@ -188,13 +183,19 @@ sleep_usec(uint32_t usec)
         struct timespec wakeup_time;
 
         clock_gettime(CLOCK_TAI, &wakeup_time);
-        wakeup_time.tv_nsec += (uint64_t)(usec * USEC_PER_SEC);
-        if (wakeup_time.tv_nsec > NSEC_PER_SEC) {
+        wakeup_time.tv_nsec += (uint64_t)(usec * 1000UL);
+        while (wakeup_time.tv_nsec >= NSEC_PER_SEC) {
             wakeup_time.tv_nsec -= NSEC_PER_SEC;
             wakeup_time.tv_sec++;
         }
         clock_nanosleep(CLOCK_TAI, TIMER_ABSTIME, &wakeup_time, NULL);
     }
+}
+
+static inline void
+sleep_msec(uint32_t msec)
+{
+    sleep_usec(msec * 1000UL);
 }
 
 static inline void
@@ -205,7 +206,7 @@ sleep_nsec(uint64_t nsec)
 
         clock_gettime(CLOCK_TAI, &wakeup_time);
         wakeup_time.tv_nsec += nsec;
-        if (wakeup_time.tv_nsec > NSEC_PER_SEC) {
+        while (wakeup_time.tv_nsec >= NSEC_PER_SEC) {
             wakeup_time.tv_nsec -= NSEC_PER_SEC;
             wakeup_time.tv_sec++;
         }
@@ -235,7 +236,7 @@ link_status_no_wait(lport_t *lport, char *buff, int len)
             snprintf(buff, len, "<Down>");
     } else {
         if (buff && len > 0)
-            snprintf(buff, len, "<UP-%'d-%s>", link->link_speed,
+            snprintf(buff, len, "<UP-%'u-%s>", link->link_speed,
                      (link->link_duplex == RTE_ETH_LINK_FULL_DUPLEX) ? "FD" : "HD");
     }
 }
@@ -264,6 +265,9 @@ send_packets(uint16_t pid, uint16_t qid, struct rte_mbuf **mbufs, uint16_t num_m
         mbufs += nb_tx;
         lcore->stats.tx_ring_full++;
     } while (is_running());
+
+    if (num_mbufs > 0)
+        rte_pktmbuf_free_bulk(mbufs, num_mbufs);
 }
 
 static inline struct rte_mempool *
@@ -274,7 +278,7 @@ lport_pktmbuf_pool(const char *name, uint16_t pid, uint16_t qid, uint32_t num_mb
     char buff[RTE_MEMPOOL_NAMESIZE] = {0};
 
     snprintf(buff, sizeof(buff), "%s-%d/%d", name, pid, qid);
-	fprintf(stderr, "Create pktmbuf pool %s num_mbufs %'u cache_size: %'u Priv %'u mbuf_size %'u\n",
+	fprintf(stderr, "Create pktmbuf pool %s num_mbufs %'u cache_size: %'u Priv %'d mbuf_size %'u\n",
 		buff, num_mbufs, cache_size, DEFAULT_PRIV_SIZE, mbuf_size);
     mp = rte_pktmbuf_pool_create(buff, num_mbufs, cache_size, DEFAULT_PRIV_SIZE, mbuf_size,
                                  rte_eth_dev_socket_id(pid));
@@ -289,7 +293,7 @@ min_avg_max_update(min_avg_max_t *mma, uint64_t ns)
 {
 	if (ns < mma->min_ns)
 		mma->min_ns = ns;
-	else if (ns > mma->max_ns)
+	if (ns > mma->max_ns)
 		mma->max_ns = ns;
 	mma->sum_ns += ns;
 	mma->count++;
@@ -309,16 +313,9 @@ end_time(min_avg_max_t *mma, uint64_t begin)
 		min_avg_max_update(mma, clock_get_ns() - begin);
 }
 
-static inline void
-print_clock(const char *s, const char *s1, uint64_t curr, const char *s2, uint64_t end_cycle)
-{
-    printf("INFO: %s %5s: %'" PRIu64 " >  %5s: %'" PRIu64, s, s1, curr, s2, end_cycle);
-    printf(" Delta:%'8" PRIu64 "\n", (curr > end_cycle) ? curr - end_cycle : end_cycle - curr);
-}
-
 /// Round up to next higher power of 2 (return x if it's already a power of 2).
-static inline int
-pow2roundup(u_int32_t x)
+static inline uint32_t
+pow2roundup(uint32_t x)
 {
     --x;
     x |= x >> 1;

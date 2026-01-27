@@ -76,6 +76,9 @@ help:
 	@echo "$(GREEN)Utility Targets:$(NC)"
 	@echo "  $(YELLOW)config$(NC)       - Display current build configuration"
 	@echo "  $(YELLOW)show-config$(NC)  - Display configuration and meson options"
+	@echo "  $(YELLOW)coverity$(NC)     - Run Coverity static analysis"
+	@echo "  $(YELLOW)coverity-report$(NC) - Generate Coverity HTML report"
+	@echo "  $(YELLOW)coverity-clean$(NC) - Clean Coverity artifacts"
 	@echo ""
 	@echo "$(GREEN)Configuration Variables:$(NC)"
 	@echo "  $(YELLOW)BUILD_DIR$(NC)        Build directory (default: builddir)"
@@ -257,6 +260,50 @@ check:
 		exit 1; \
 	fi
 
+# Coverity static analysis
+COV_DIR ?= cov-int
+COV_BUILD ?= cov-build
+COV_ANALYZE ?= cov-analyze
+COV_CONFIG_DIR ?= $(SCRIPT_DIR)/.coverity-config
+
+.PHONY: coverity
+coverity: setup
+	@if ! command -v $(COV_BUILD) >/dev/null 2>&1; then \
+		echo "$(RED)Error: Coverity tools not found. Ensure cov-build is in PATH.$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)Configuring Coverity compiler...$(NC)"
+	@rm -rf $(COV_DIR)
+	@mkdir -p $(COV_CONFIG_DIR)
+	@cov-configure --config $(COV_CONFIG_DIR)/config.xml --gcc
+	@cov-configure --config $(COV_CONFIG_DIR)/config.xml --comptype gcc --compiler cc
+	@echo "$(GREEN)Cleaning build objects for full recompilation...$(NC)"
+	@ninja -C $(BUILD_DIR) -t clean
+	@echo "$(GREEN)Running Coverity build capture...$(NC)"
+	@$(COV_BUILD) --dir $(COV_DIR) --config $(COV_CONFIG_DIR)/config.xml ninja -C $(BUILD_DIR) -v
+	@echo "$(GREEN)Running Coverity analysis...$(NC)"
+	@$(COV_ANALYZE) --dir $(COV_DIR) --all
+	@echo "$(GREEN)Coverity analysis complete. Results in $(COV_DIR)/$(NC)"
+	@echo "$(YELLOW)To view results: cov-format-errors --dir $(COV_DIR) --html-output cov-html$(NC)"
+
+COV_HTML_DIR ?= cov-html
+
+.PHONY: coverity-report
+coverity-report:
+	@if [ ! -d $(COV_DIR) ]; then \
+		echo "$(RED)Error: No Coverity results found. Run 'make coverity' first.$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)Generating Coverity HTML report...$(NC)"
+	@rm -rf $(COV_HTML_DIR)
+	@cov-format-errors --dir $(COV_DIR) --html-output $(COV_HTML_DIR)
+	@echo "$(GREEN)HTML report generated in $(COV_HTML_DIR)/$(NC)"
+
+.PHONY: coverity-clean
+coverity-clean:
+	@echo "$(YELLOW)Cleaning Coverity artifacts...$(NC)"
+	@rm -rf $(COV_DIR) $(COV_HTML_DIR) $(COV_CONFIG_DIR)
+
 # Show build configuration
 .PHONY: show-config
 show-config: config
@@ -267,4 +314,4 @@ show-config: config
 # Phony target to prevent conflicts
 .PHONY: all help config setup build rebuild clean distclean install run \
         dpdk dpdk-clone dpdk-patch dpdk-build dpdk-install dpdk-clean dpdk-distclean \
-        check show-config
+        check show-config coverity coverity-report coverity-clean

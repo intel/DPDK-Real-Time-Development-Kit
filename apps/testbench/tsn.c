@@ -124,12 +124,6 @@ rx_vlan_callback(uint16_t pid __rte_unused, uint16_t qid __rte_unused, struct rt
             uint16_t vid = rte_be_to_cpu_16(vh->vlan_tci) & 0xFFF;
 
             *get_qid(m) = vid2qid[vid];
-        } else if (ether_type == RTE_ETHER_TYPE_VLAN) {
-            struct rte_vlan_hdr *vh =
-                rte_pktmbuf_mtod_offset(m, struct rte_vlan_hdr *, sizeof(struct rte_ether_hdr));
-            uint16_t vid = rte_be_to_cpu_16(vh->vlan_tci) & 0xFFF;
-
-            *get_qid(m) = vid2qid[vid];
         } else if (ether_type == RTE_ETHER_TYPE_IPV4) {
             struct rte_udp_hdr *udp =
                 rte_pktmbuf_mtod_offset(m, struct rte_udp_hdr *,
@@ -251,15 +245,14 @@ tsn_shutdown(void)
     munlockall();
 }
 
+static volatile sig_atomic_t sig_caught;
+
 static void
 signal_handler(int sig)
 {
     if (sig == SIGINT || sig == SIGTERM) {
+        sig_caught = 1;
         lport_link_running_set(0);
-        sleep(1);
-        function_stop_all();
-        printf("\033[99;1H");
-        thread_timer_stop_all();
     }
 }
 
@@ -332,10 +325,11 @@ sleep_usec(uint32_t usec)
 
         uint64_t nsec = (uint64_t)(usec * 1000UL);        // convert to nanoseconds
 
-        clock_gettime(CLOCK_TAI, &wakeup_time);
+        if (clock_gettime(CLOCK_TAI, &wakeup_time) < 0)
+            return;
 
         wakeup_time.tv_nsec += nsec;
-        while (wakeup_time.tv_nsec > NSEC_PER_SEC) {
+        while (wakeup_time.tv_nsec >= NSEC_PER_SEC) {
             wakeup_time.tv_sec++;
             wakeup_time.tv_nsec -= NSEC_PER_SEC;
         }
@@ -414,7 +408,8 @@ print_stats(void)
         stats_reset_all_stats();
     }
 
-    clock_gettime(CLOCK_TAI, &current_time);
+    if (clock_gettime(CLOCK_TAI, &current_time) < 0)
+        memset(&current_time, 0, sizeof(current_time));
 
     // Calculate elapsed time in seconds
     long seconds = current_time.tv_sec - start_time.tv_sec;
@@ -494,8 +489,6 @@ print_stats(void)
                 continue;
             ppc = app_config.l2_num_frames_per_cycle;
             break;
-        default:
-            continue;
         }
         stats = stat_get_global_statistics(i);
         printf("%-10s", stat_frame_type_to_string(i));
@@ -583,7 +576,8 @@ keyboard(void)
 
     sleep_usec(2000000);
 
-    clock_gettime(CLOCK_TAI, &start_time);
+    if (clock_gettime(CLOCK_TAI, &start_time) < 0)
+        memset(&start_time, 0, sizeof(start_time));
 
     // scroll the screen to save messages, after clear screen
     for (int i = 0; i < 64; i++)
@@ -625,9 +619,10 @@ main(int argc, char *argv[])
 {
     int c, ret;
 
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
-    signal(SIGUSR1, signal_handler);
+    if (signal(SIGINT, signal_handler) == SIG_ERR ||
+        signal(SIGTERM, signal_handler) == SIG_ERR ||
+        signal(SIGUSR1, signal_handler) == SIG_ERR)
+        rte_exit(EXIT_FAILURE, "Error: Failed to register signal handler\n");
 
     setlocale(LC_ALL, "");
 
@@ -643,13 +638,13 @@ main(int argc, char *argv[])
     argc -= ret;
     argv += ret;
 
-    fprintf(stderr, "Initializing %s with %d core(s), Core ID: %d\n", rte_version(),
+    fprintf(stderr, "Initializing %s with %u core(s), Core ID: %u\n", rte_version(),
             rte_lcore_count(), rte_lcore_id());
-    fprintf(stderr, "  Number of ports available %d\n", rte_eth_dev_count_avail());
-    fprintf(stderr, "  Total Number of ports     %d\n", rte_eth_dev_count_total());
+    fprintf(stderr, "  Number of ports available %u\n", rte_eth_dev_count_avail());
+    fprintf(stderr, "  Total Number of ports     %u\n", rte_eth_dev_count_total());
 
     if (rte_lcore_count() < (MAX_PN_TYPES + 1))
-        rte_exit(EXIT_FAILURE, "Not enough cores (%d) to run all required threads (Need %d+1)!\n",
+        rte_exit(EXIT_FAILURE, "Not enough cores (%u) to run all required threads (Need %d+1)!\n",
                  rte_lcore_count(), MAX_PN_TYPES);
 
     mirror_mode = false;

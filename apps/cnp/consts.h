@@ -2,20 +2,15 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #pragma once
 
 #include <rte_time.h>
 
 #ifndef CLOCK_TAI
-#define CLOCK_TAI 1
+#define CLOCK_TAI 11
 #endif
 #ifndef TIMER_ABSTIME
-#define TIMER_ABSTIME 0
+#define TIMER_ABSTIME 1
 #endif
 
 enum {
@@ -31,5 +26,4 @@ enum {
     NUM_TX_DESC_DEFAULT = 1024,               // Number default Tx descriptors
     FCS_SIZE            = 4,                  // Size of FCS
     DEFAULT_DELAY_SEC   = 2,                  // Default delay in seconds before Tx packets
-    USEC_PER_SEC        = (NSEC_PER_SEC / 1000UL),        // Number of microseconds in a second
 };

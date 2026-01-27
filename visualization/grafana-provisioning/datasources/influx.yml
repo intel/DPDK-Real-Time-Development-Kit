@@ -1,21 +1,18 @@
-# config file version
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright(c) 2025 Intel Corporation
+
 apiVersion: 1
 
-# list of datasources to insert/update depending
-# whats available in the database
 datasources:
-  # <string, required> name of the datasource. Required
 - name: InfluxDB
-  # <string, required> datasource type. Required
   type: influxdb
-  # <string, required> access mode. direct or proxy. Required
   access: proxy
-  # <string> url
   url: http://influxdb:8086
-  # <bool> enable/disable basic auth
-  basicAuth: false
-  # <bool> mark as default datasource. Max one per org
   isDefault: true
-  # <bool> allow users to edit datasources from the UI.
   editable: true
-  database: lttt
+  database: rtdk
+  jsonData:
+    httpMode: GET
+    httpHeaderName1: Authorization
+  secureJsonData:
+    httpHeaderValue1: Token $INFLUXDB_TOKEN

@@ -48,7 +48,7 @@ rtc_initialize_frame(struct thread_context *thread_context __rte_unused, struct 
     rte_pktmbuf_data_len(mbuf) = app_config.rtc_frame_length;
     rte_pktmbuf_pkt_len(mbuf)  = app_config.rtc_frame_length;
 
-    memset(rte_pktmbuf_mtod(mbuf, char *), 0, app_config.rta_frame_length);
+    memset(rte_pktmbuf_mtod(mbuf, char *), 0, app_config.rtc_frame_length);
 
     initialize_profinet_frame(app_config.rtc_security_mode, rte_pktmbuf_mtod(mbuf, unsigned char *),
                               rte_pktmbuf_data_len(mbuf),

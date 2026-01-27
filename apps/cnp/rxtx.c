@@ -2,15 +2,8 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "cnp-tuning.h"
 #include "probe.h"
-#include <rte_hexdump.h>
-#include <rte_cycles.h>
 #include <unistd.h>
 
 /**
@@ -23,51 +16,31 @@ struct ptpv2_msg {
     uint8_t version; /**< must be 0x02 */
 };
 
-#define TX_READ_TIMESTAMP_TIMO 1000        // 1000 iterations timeout
-#define TX_POLL_DELAY_US       1           // 1 microseconds delay between polls
+#define MAX_TX_TMST_WAIT_MICROSECS 1000UL // 1 milli-second
 
 static int
 poll_tx_timestamp(uint16_t port_id, uint64_t *tx_timestamp, stats_t *stats)
 {
-    struct timespec timestamp = {0};
-    int timo                  = TX_READ_TIMESTAMP_TIMO;
-    int ret                   = -EINVAL;
+    struct timespec timestamp = {0, 0};
+    uint64_t wait_us          = 0;
 
-    do {
-        ret = rte_eth_timesync_read_tx_timestamp(port_id, &timestamp);
-        if (ret == -ENOTSUP) {
-            printf("Port %u: Read Timestamp not supported by hardware\n", port_id);
-            // Hardware doesn't support timestamping
-            if (_btst(DEBUG_MODE))
-                printf("TX timestamp not supported by hardware\n");
-            stats->tx_timestamp_errors++;
-            break;
-        } else if (ret == 0) {        // Success
-            *tx_timestamp = ts_to_ns(&timestamp);
-            if (_btst(DEBUG_MODE))
-                printf("Got TX timespec: %'" PRIu64 " sec, %'" PRIu64 " ns, ret %d\n",
-                       (uint64_t)timestamp.tv_sec, (uint64_t)timestamp.tv_nsec, ret);
-            break;
-        } else if (ret == -1 || ret == -EINVAL || ret == -EAGAIN) {
-            // Timestamp not yet available (-1, -EINVAL, -EAGAIN all mean "not ready yet")
-            // ICE driver often returns -1 instead of proper errno codes
-            rte_delay_us(TX_POLL_DELAY_US);
-        } else {
-            // Unexpected error code (e.g., -ENODEV, -EIO)
-            if (_btst(DEBUG_MODE))
-                printf("TX timestamp read error: ret=%d (%s)\n", ret, rte_strerror(-ret));
-            stats->tx_timestamp_errors++;
-            break;
-        }
-    } while (--timo > 0);
+    (void)stats;
 
-    if ((ret == -1 || ret == -EINVAL || ret == -EAGAIN) && timo == 0) {
-        stats->tx_timestamp_timeouts++;
-        // if (_btst(DEBUG_MODE))
-        printf("TX timestamp timeout after %d attempts\n", TX_READ_TIMESTAMP_TIMO);
+    while ((rte_eth_timesync_read_tx_timestamp(port_id, &timestamp) < 0) &&
+           (wait_us < MAX_TX_TMST_WAIT_MICROSECS)) {
+        rte_delay_us(1);
+        wait_us++;
     }
-
-    return ret;
+    if (wait_us >= MAX_TX_TMST_WAIT_MICROSECS) {
+        printf("Port %u TX timestamp registers not valid after "
+               "%lu micro-seconds\n",
+               port_id, MAX_TX_TMST_WAIT_MICROSECS);
+        return -1;
+    }
+    *tx_timestamp = ts_to_ns(&timestamp);
+//    printf("Port %u TX timestamp obtained %lu s %lu ns, %lu ns\n", port_id, timestamp.tv_sec, timestamp.tv_nsec,
+//           *tx_timestamp);
+    return 0;
 }
 
 static inline int
@@ -102,14 +75,14 @@ tx_timestamping(lport_t *lport)
         payload->magic           = rte_cpu_to_be_16(THE_MAGIC);
         payload->packet_type     = rte_cpu_to_be_16(TYPE_PROBE_SEND);
         payload->sequence_number = rte_cpu_to_be_32(lport->tx_sequence);
-		lport->tx_sequence++;
+        lport->tx_sequence++;
 
         payload->T1 =
             rte_cpu_to_be_64(start_stats_timer(&lport->other_stats.sw_rtt, clock_get_ns()));
-		if (_btst(DEBUG_MODE))
-			printf("Transmit probe seq=%u T1=%'" PRIu64 " ns\n",
-               rte_be_to_cpu_32(payload->sequence_number), rte_be_to_cpu_64(payload->T1));
-	}
+        if (_btst(DEBUG_MODE))
+            printf("Transmit probe seq=%u T1=%'" PRIu64 " ns\n",
+                   rte_be_to_cpu_32(payload->sequence_number), rte_be_to_cpu_64(payload->T1));
+    }
 
     m->ol_flags = 0;
 
@@ -127,10 +100,12 @@ tx_timestamping(lport_t *lport)
         start_stats_timer(&lport->other_stats.poll, clock_get_ns());
         ret = poll_tx_timestamp(lport->pid, &lport->tx_timestamp, &lport->other_stats);
         if (ret != 0) {
-            // Keep previous timestamp on failure
-            if (_btst(DEBUG_MODE))
-                printf("Failed to get TX timestamp on port %u: %s\n", lport->pid,
-                       rte_strerror(-ret));
+            printf("Failed to get TX timestamp on port %u: %s\n", lport->pid, rte_strerror(-ret));
+        } else {
+            if (lport->tx_timestamp == UINT64_MAX)   // Invalid timestamp
+                lport->other_stats.tx_timestamp_errors++;
+            else
+                start_stats_timer(&lport->other_stats.hw_rtt, lport->tx_timestamp);
         }
         end_stats_timer(&lport->other_stats.poll, clock_get_ns());
     }
@@ -148,7 +123,7 @@ rx_timestamping(lport_t *lport)
     uint16_t nb_rx = 0, nb_tx = 0;
 
     if ((nb_rx = rte_eth_rx_burst(lport->pid, lport->qid, rx_mbufs, RX_BURST_SIZE)) > 0) {
-        struct rte_ether_hdr *eth_hdr;
+        const struct rte_ether_hdr *eth_hdr;
         probe_payload_t *payload;
 
         if (nb_rx > 1)
@@ -158,14 +133,14 @@ rx_timestamping(lport_t *lport)
             struct rte_mbuf *pkt = rx_mbufs[i];
 
             lport->other_stats.total_pkts.rx++;
-            if (rte_pktmbuf_pkt_len(pkt) < sizeof(struct rte_ether_hdr) + sizeof(probe_payload_t)) {
+            if (rte_pktmbuf_pkt_len(pkt) < sizeof(struct rte_ether_hdr) + sizeof(struct ptpv2_msg) + sizeof(probe_payload_t)) {
                 lport->other_stats.rx_frame_errors++;
                 printf("Frame too short\n");
                 rte_pktmbuf_free(pkt);
                 continue;
             }
 
-            eth_hdr = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
+            eth_hdr = rte_pktmbuf_mtod(pkt, const struct rte_ether_hdr *);
             if (eth_hdr->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_1588)) {
                 lport->other_stats.rx_unknown_frames++;
                 rte_pktmbuf_free(pkt);
@@ -173,7 +148,7 @@ rx_timestamping(lport_t *lport)
             }
 
             if (_btst(SW_TIMESTAMP)) {
-				uint32_t sequence_number;
+                uint32_t sequence_number;
 
                 payload = (probe_payload_t *)(rte_pktmbuf_mtod_offset(
                     pkt, char *, sizeof(struct rte_ether_hdr) + sizeof(struct ptpv2_msg)));
@@ -184,47 +159,34 @@ rx_timestamping(lport_t *lport)
                     rte_pktmbuf_free(pkt);
                     continue;
                 }
-				sequence_number = rte_be_to_cpu_32(payload->sequence_number);
-				if (sequence_number != lport->rx_sequence) {
-					printf("Out-of-order probe received: seq=%u expected>= %u\n",
-						   sequence_number, lport->rx_sequence);
-					lport->rx_sequence = sequence_number;
-					rte_pktmbuf_free(pkt);
-					continue;
-				}
-				lport->rx_sequence++;
+                sequence_number = rte_be_to_cpu_32(payload->sequence_number);
+                if (sequence_number != lport->rx_sequence) {
+                    printf("Out-of-order probe received: seq=%u expected>= %u\n", sequence_number,
+                           lport->rx_sequence);
+                    lport->rx_sequence = sequence_number;
+                    rte_pktmbuf_free(pkt);
+                    continue;
+                }
+                lport->rx_sequence++;
 
                 T1 = rte_be_to_cpu_64(payload->T1);
-				if (_btst(DEBUG_MODE))
-	                printf("Received probe seq=%u T1=%'" PRIu64 " Now=%'" PRIu64 " ns\n",
-                       rte_be_to_cpu_32(payload->sequence_number), T1, lport->other_stats.sw_rtt.start_ns);
+                if (_btst(DEBUG_MODE))
+                    printf("Received probe seq=%u T1=%'" PRIu64 " Now=%'" PRIu64 " ns\n",
+                           rte_be_to_cpu_32(payload->sequence_number), T1,
+                           lport->other_stats.sw_rtt.start_ns);
                 end_stats_timer(&lport->other_stats.sw_rtt, clock_get_ns());
             }
 
             if (_btst(HW_TIMESTAMP)) {
-                // Check packet for RX timestamp flag
-                if (pkt->ol_flags & lport->rx_timestamp_flag) {
-                    uint64_t rx_timestamp =
-                        *RTE_MBUF_DYNFIELD(pkt, lport->rx_timestamp_offset, uint64_t *);
+                struct timespec timestamp = {0, 0};
 
-                    // Validate RX timestamp is non-zero and reasonable
-                    if (rx_timestamp == 0) {
-                        lport->other_stats.rx_timestamp_errors++;
-                        if (_btst(DEBUG_MODE))
-                            printf("Warning: RX timestamp is zero\n");
-                    } else {
-                        if (lport->tx_timestamp != UINT64_MAX &&
-                            lport->tx_timestamp > rx_timestamp) {
-                            lport->other_stats.hw_rx_rtt_invalid++;
-                            if (_btst(DEBUG_MODE))
-                                printf("Warning: RX timestamp less than TX timestamp\n");
-                            rte_pktmbuf_free(pkt);
-                            continue;
-                        } else
-                            end_stats_timer(&lport->other_stats.hw_rtt, rx_timestamp);
-                    }
-                } else
+                if (rte_eth_timesync_read_rx_timestamp(lport->pid, &timestamp, 0) < 0) {
+                    printf("Port %u RX timestamp registers not valid\n", lport->pid);
                     lport->other_stats.rx_no_timestamp++;
+                } else {
+                    uint64_t rx_timestamp = ts_to_ns(&timestamp);
+                    end_stats_timer(&lport->other_stats.hw_rtt, rx_timestamp);
+                }
             }
 
             // Swap MAC addresses
@@ -255,9 +217,8 @@ rxtx_routine(void *arg __rte_unused)
     uint64_t curr_ns     = 0;
 
     printf("Starting RX/TX on port %u on lcore %u\n", pid, rte_lcore_id());
-    lport->pid          = pid;
-    lport->qid          = 0;
-    lport->tx_timestamp = UINT64_MAX;        // Initialize to invalid value
+    lport->pid = pid;
+    lport->qid = 0;
     if (port_init(lport) < 0) {
         printf("Cannot init lport %u:%u\n", pid, lport->qid);
         goto leave;
@@ -276,6 +237,9 @@ rxtx_routine(void *arg __rte_unused)
 
     /* Run until the application has stopped or been killed. */
     while (is_running()) {
+        if (rx_timestamping(lport) < 0)
+            break;
+
         curr_ns = clock_get_ns();
         /* Wait until the next cycle time */
         if (curr_ns >= tx_begin_ns) {
@@ -286,9 +250,6 @@ rxtx_routine(void *arg __rte_unused)
                 break;
             }
         }
-
-        if (rx_timestamping(lport) < 0)
-            break;
     }
 leave:
     stop_running();

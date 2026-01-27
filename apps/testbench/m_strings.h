@@ -273,7 +273,7 @@ static __inline__ char *m_strtolower(char *str)
 	if (!str)
 		return NULL;
 
-	for (int i = 0; i <= (int)(strlen(str)); i++)
+	for (size_t i = 0; i <= strlen(str); i++)
 		str[i] = tolower(str[i]);
 
 	return str;
@@ -293,7 +293,7 @@ static __inline__ char *m_strtoupper(char *str)
 	if (!str)
 		return NULL;
 
-	for (int i = 0; i <= (int)(strlen(str)); i++)
+	for (size_t i = 0; i <= strlen(str); i++)
 		str[i] = toupper(str[i]);
 
 	return str;

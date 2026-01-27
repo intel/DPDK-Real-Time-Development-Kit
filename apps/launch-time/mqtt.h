@@ -2,15 +2,13 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #ifndef _MQTT_H_
 #define _MQTT_H_
 
-#include "launch-time.h"
+#include <stdint.h>
+#include <rte_ethdev.h>
+#include <rte_common.h>
+#include "stats.h"
 
 enum {
     LOG_MQTT_BUFFER_COUNT = 256,            // Number of buffers in MQTT memory pool
@@ -25,7 +23,7 @@ typedef struct mqtt_statistics {
 } mqtt_statistics_t;
 
 int mqtt_init(void);
-void mqtt_stats(stats_t *stats, struct rte_eth_stats *port_stats);
+void mqtt_stats(const stats_t *stats, const struct rte_eth_stats *port_stats);
 void mqtt_close(void);
 
 int mqtt_thread_routine(void *data __rte_unused);

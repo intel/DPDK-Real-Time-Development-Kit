@@ -2,10 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
 #include "cnp-tuning.h"
 #include "rte_version.h"
 
@@ -23,7 +19,6 @@ reset_stats(void)
     lport->other_stats.sw_rtt.min_ns = 1000000UL;
     lport->other_stats.hw_rtt.min_ns = 1000000UL;
     lport->other_stats.poll.min_ns   = 1000000UL;
-    lport->other_stats.poll.max_ns   = 0UL;
     lport->other_stats.poll.max_ns   = 0UL;
 }
 
@@ -76,7 +71,7 @@ print_min_avg_max(min_avg_max_t *rtt, const char *name)
 static inline void
 print_errors(void)
 {
-    lport_t *lport = &pinfo->lports[0];
+    const lport_t *lport = &pinfo->lports[0];
 
     print_3_numbers("RxMissed/RxError/TxError", lport->stats.imissed, lport->stats.ierrors,
                     lport->stats.oerrors);
@@ -145,7 +140,7 @@ print_stats(void)
 
     printf("%c: %s, TX Interval: %'lu ns, ", twirl[toggle++ % 4],
            (pinfo->client_mode) ? "Client Mode" : "Server Mode", pinfo->tx_interval_ns);
-    printf("Packet Length: %'u\n", pinfo->pkt_length + FCS_SIZE);
+    printf("Packet Length: %'d\n", pinfo->pkt_length + FCS_SIZE);
 
     printf("   Modes: ");
     printf("%sSW-TMST%s ", _btst(SW_TIMESTAMP) ? "\033[32m" : "\033[31m", "\033[0m");
@@ -165,7 +160,7 @@ print_stats(void)
     // time per burst in nanoseconds
     double wire_time_ns = ((num_bpp / link_speed) * NSEC_PER_SEC);
     double total_pps    = link_speed / num_bpp;
-    double pps          = (NSEC_PER_SEC / pinfo->tx_interval_ns);
+    double pps          = ((double)NSEC_PER_SEC / (double)pinfo->tx_interval_ns);
 
     printf("   Wire Time:%'.2f ns, RTT:%'.2f ns, bits %'.0f,TotalPPS:%'.2f PPS:%'.0f\n",
            wire_time_ns, wire_time_ns * 2.0, num_bpp, total_pps, pps);
@@ -180,6 +175,7 @@ print_stats(void)
     print_min_avg_max(&lport->other_stats.poll, "  TX TS Poll");
     print_total_packets();
     print_errors();
+    print_number("Many Rx", lport->other_stats.many_rx);
     if (_btst(HW_TIMESTAMP)) {
         print_number("TX TS Errors", lport->other_stats.tx_timestamp_errors);
         print_number("TX TS Timeouts", lport->other_stats.tx_timestamp_timeouts);
@@ -191,10 +187,10 @@ print_stats(void)
     rte_memcpy(&lport->stats_prev, &lport->stats, sizeof(struct rte_eth_stats));
 
     if (strlen(RTE_VER_SUFFIX) == 0)
-        snprintf(version, sizeof(version), "DPDK %d.%02d.%d", rte_version_year(),
+        snprintf(version, sizeof(version), "DPDK %u.%02u.%u", rte_version_year(),
                  rte_version_month(), rte_version_minor());
     else
-        snprintf(version, sizeof(version), "DPDK %d.%02d.%d%s%d", rte_version_year(),
+        snprintf(version, sizeof(version), "DPDK %u.%02u.%u%s%u", rte_version_year(),
                  rte_version_month(), rte_version_minor(), rte_version_suffix(),
                  rte_version_release());
     printf("   [Press q to quit, r to reset stats, c to clear screen] <%s>\n", version);

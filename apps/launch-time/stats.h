@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #ifndef _STATS_H_
 #define _STATS_H_
 
@@ -28,13 +23,13 @@ typedef struct {
 // Values in nanoseconds unless otherwise specified
 typedef struct stats_s {
     min_avg_max_t launch_time;         // Hardware launch time statistics
-    pkt_count_t total_pkts;            // Total Rx/Tx reference packets
+    pkt_count_t total_pkts;            // Total Rx/Tx packets
     uint64_t rx_pps;                   // Number of packets per second
     uint64_t tx_pps;                   // Number of packets per second
     uint64_t no_mbufs;                 // No mbufs available
 } stats_t;
 
 void print_stats(void);
-void reset_stats(void);
+void reset_rx_timestamp(void);
 
 #endif /* _STATS_H_ */

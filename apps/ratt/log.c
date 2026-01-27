@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-#include <rte_hexdump.h>
 #include "log.h"
 
 typedef struct log_info {
@@ -21,7 +16,7 @@ static log_info_t log_info = {0};
 static log_info_t *linfo   = &log_info;
 
 int
-log_init(char *logfile)
+log_init(const char *logfile)
 {
     int socket_id = rte_socket_id();
 
@@ -36,7 +31,7 @@ log_init(char *logfile)
                                      DEFAULT_PRIV_SIZE, NULL, NULL, NULL, NULL, socket_id, 0);
     if (!linfo->pool) {
         printf("Error: Could not create log pool\n");
-        return -ENOMEM;
+        goto err_pool;
     }
 
     uint32_t ring_size = pow2roundup(((NS_PER_S / pinfo->cycle_time_ns) * 2));
@@ -44,17 +39,32 @@ log_init(char *logfile)
         rte_ring_create("delta", ring_size, socket_id, RING_F_MC_RTS_DEQ | RING_F_MP_RTS_ENQ);
     if (!linfo->delta_ring) {
         printf("Error: Could not create delta ring\n");
-        return -ENOMEM;
+        goto err_delta;
     }
 
     linfo->file = strdup(logfile);
+    if (!linfo->file)
+        goto err_file;
+
     return log_open();
+
+err_file:
+    rte_ring_free(linfo->delta_ring);
+    linfo->delta_ring = NULL;
+err_delta:
+    rte_mempool_free(linfo->pool);
+    linfo->pool = NULL;
+err_pool:
+    rte_ring_free(linfo->ring);
+    linfo->ring = NULL;
+    return -ENOMEM;
 }
 
 void
 log_close(void)
 {
     if (pinfo->log_enabled) {
+        pinfo->log_enabled = false;
         log_flush();
         rte_ring_free(linfo->ring);        // These check for NULL pointers
         rte_ring_free(linfo->delta_ring);
@@ -103,21 +113,25 @@ log_message(const char *format, ...)
         return;
 
     /* Log each message with timestamp. */
-    clock_gettime(CLOCK_TAI, &time);
+    if (clock_gettime(CLOCK_TAI, &time) < 0)
+        memset(&time, 0, sizeof(time));
 
     len  = LOG_BUFFER_SIZE - 1;
     p    = buff;
     p[0] = '\0';
 
     written = snprintf(p, len, "[%8ld.%9ld]: ", time.tv_sec, time.tv_nsec);
-    p += written;
-    len -= written;
+    if (written > 0 && written < len) {
+        p += written;
+        len -= written;
+    }
 
     va_start(args, format);
-    written += vsnprintf(p, len, format, args);
+    vsnprintf(p, len, format, args);
     va_end(args);
 
-    rte_ring_enqueue(linfo->ring, p);
+    if (rte_ring_enqueue(linfo->ring, buff))
+        rte_mempool_put(linfo->pool, buff);
 }
 
 void
@@ -179,5 +193,6 @@ log_flush(void)
 {
     flush_logs();
     flush_deltas();
-    fflush(linfo->fd);
+    if (linfo->fd)
+        fflush(linfo->fd);
 }

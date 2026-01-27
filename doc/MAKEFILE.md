@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- Copyright(c) 2025 Intel Corporation -->
+
 # Makefile Build System
 
 The Makefile provides a simplified build interface for the Launch-Time Testing Tool (lttt) using a standard make-based build system.

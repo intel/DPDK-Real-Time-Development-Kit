@@ -2,16 +2,10 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include <unistd.h>
 #include "launch-time.h"
 #include "log.h"
 #include "mqtt.h"
-#include <rte_hexdump.h>
 
 static inline int
 tx_timestamping(lcore_t *lcore, uint16_t pid, uint16_t qid)
@@ -19,8 +13,7 @@ tx_timestamping(lcore_t *lcore, uint16_t pid, uint16_t qid)
     struct rte_mbuf **mbufs = lcore->tx_mbufs;
     lport_t *lport          = &lcore->lport;
     struct rte_ether_hdr *eth;
-    uint64_t port_ns            = 0;
-    uint64_t packet_interval_ns = NSEC_PER_SEC / 60 / pinfo->burst_count;
+    uint64_t port_ns = 0;
 
     if (rte_mempool_get_bulk(lport->tx_mp, (void **)mbufs, pinfo->burst_count) != 0) {
         lcore->stats.no_mbufs++;
@@ -45,7 +38,7 @@ tx_timestamping(lcore_t *lcore, uint16_t pid, uint16_t qid)
             m->ol_flags |= pinfo->tx_timestamp_flag;
             m->ol_flags |= RTE_MBUF_F_TX_IEEE1588_TMST;
             *RTE_MBUF_DYNFIELD(m, pinfo->tx_timestamp_offset, uint64_t *) =
-                port_ns + i * packet_interval_ns;
+                port_ns;
         } else {
             m->ol_flags &= ~pinfo->tx_timestamp_flag;
             m->ol_flags &= ~RTE_MBUF_F_TX_IEEE1588_TMST;
@@ -57,19 +50,26 @@ tx_timestamping(lcore_t *lcore, uint16_t pid, uint16_t qid)
     return 0;
 }
 
+static uint64_t prev_rx;
+
+void
+reset_rx_timestamp(void)
+{
+    prev_rx = 0;
+}
+
 static inline int
 rx_timestamping(lcore_t *lcore, uint16_t pid, uint16_t qid)
 {
-    struct rte_mbuf **mbufs, **pkts;
+    struct rte_mbuf **mbufs;
     uint16_t nb_rx, total_rx, to_recv;
-    static uint64_t prev_rx = 0, curr_ns;
+    uint64_t curr_ns;
 
-    pkts = mbufs = lcore->rx_mbufs;
-    to_recv      = pinfo->burst_count;
+    mbufs   = lcore->rx_mbufs;
+    to_recv = pinfo->burst_count;
     total_rx     = 0;
 
-    if ((nb_rx = rte_eth_rx_burst(pid, qid, pkts, to_recv)) > 0) {
-        pkts += nb_rx;
+    if ((nb_rx = rte_eth_rx_burst(pid, qid, mbufs, to_recv)) > 0) {
         to_recv -= nb_rx;
         total_rx += nb_rx;
 
@@ -88,9 +88,9 @@ rx_timestamping(lcore_t *lcore, uint16_t pid, uint16_t qid)
                 min_avg_max_update(&lcore->stats.launch_time, curr_ns - prev_rx);
                 prev_rx = curr_ns;
             }
-
-            rte_pktmbuf_free_bulk(mbufs, total_rx);
         }
+
+        rte_pktmbuf_free_bulk(mbufs, total_rx);
     }
     return 0;
 }
@@ -121,7 +121,7 @@ rxtx_routine(void *arg)
             tx_begin_ns += pinfo->launch_interval_ns;
 
             if (tx_func(lcore, pid, qid))
-                rte_exit(EXIT_FAILURE, "failed to send packets on port %u", lport->pid);
+                rte_exit(EXIT_FAILURE, "failed to send packets on port %u\n", lport->pid);
         }
 
         if (rx_func(lcore, pid, qid))

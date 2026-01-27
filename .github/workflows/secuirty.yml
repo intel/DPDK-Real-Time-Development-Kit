@@ -1,0 +1,17 @@
+# .github/workflows/security.yml
+name: Security Scanning
+on: [pull_request, push, workflow_dispatch]
+
+jobs:
+  security:
+    runs-on: ["sandbox.prod.amr.dind"]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: intel-innersource/applications.security.monitoring.cas@v3
+        with:
+          sdl-tasks: "SDL441,SDL419,SDL302"
+          itsf-username: ${{ secrets.ITSF_USERNAME }}
+          itsf-password: ${{ secrets.ITSF_PASSWORD }}

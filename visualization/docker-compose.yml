@@ -1,85 +1,129 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright(c) 2025 Intel Corporation
+
 name: rt-stats
 
 services:
   mosquitto:
-    image: eclipse-mosquitto:latest
+    image: eclipse-mosquitto:2
     logging:
       options:
         max-size: "10m"
         max-file: "3"
     container_name: mosquitto
-    restart: always
+    restart: unless-stopped
     ports:
-      - "1883:1883" # MQTT
-      - "9001:9001" # WebSockets
+      - "${MQTT_PORT:-1883}:1883"
+      - "${MQTT_WS_PORT:-9001}:9001"
     networks:
       - stats
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-log:/mosquitto/log
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     cpuset: ${TELEM_CPU:-0}
 
   influxdb:
-    image: influxdb:1.8-alpine
+    image: influxdb:2.7
     logging:
       options:
         max-size: "10m"
         max-file: "3"
     container_name: influxdb
-    restart: always
+    restart: unless-stopped
     ports:
-      - "8086:8086"
+      - "${INFLUXDB_PORT:-8086}:8086"
     networks:
       - stats
     volumes:
-      - influxdb-data:/var/lib/influxdb
-      - ./influxdb.conf:/etc/influxdb/influxdb.conf:ro
+      - influxdb-data:/var/lib/influxdb2
+      - ./influxdb-init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     environment:
-      - INFLUXDB_DB="lttt"
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USER:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:?Set INFLUXDB_PASSWORD in .env}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-rtdk}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-rtdk}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:?Set INFLUXDB_TOKEN in .env}
+      - INFLUXD_HTTP_BIND_ADDRESS=:8086
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "influx", "ping", "--host", "http://localhost:8086"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     cpuset: ${TELEM_CPU:-0}
 
   telegraf:
-    environment:
-      - no_proxy=127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,influxdb,telegraf,grafana,mosquitto"
-    image: telegraf
+    image: telegraf:1.33
     logging:
       options:
         max-size: "10m"
         max-file: "3"
     container_name: telegraf
-    restart: always
+    restart: unless-stopped
+    environment:
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:?Set INFLUXDB_TOKEN in .env}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-rtdk}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-rtdk}
+      - no_proxy=influxdb,mosquitto,localhost,127.0.0.1
     volumes:
       - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
     depends_on:
-      - mosquitto
-      - influxdb
+      mosquitto:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
     networks:
       - stats
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
     cpuset: ${TELEM_CPU:-0}
 
   grafana:
-    environment:
-      - no_proxy=127.0.0.0/8,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,influxdb,telegraf,grafana,mosquitto"
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=passme
-    image: grafana/grafana
+    image: grafana/grafana:11.6.0
     logging:
       options:
         max-size: "10m"
         max-file: "3"
     container_name: grafana
-    restart: always
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD:?Set GF_ADMIN_PASSWORD in .env}
+      - GF_DASHBOARDS_MIN_REFRESH_INTERVAL=1s
+      - GF_USERS_VIEWERS_CAN_EDIT=true
+      - GF_USERS_EDITORS_CAN_ADMIN=true
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:?Set INFLUXDB_TOKEN in .env}
+      - no_proxy=influxdb,localhost,127.0.0.1
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3000}:3000"
     networks:
       - stats
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana-provisioning:/etc/grafana/provisioning
-      - ./grafana.ini:/etc/grafana/grafana.ini
+      - ./grafana-provisioning:/etc/grafana/provisioning:ro
     depends_on:
-      - influxdb
+      influxdb:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/lib/grafana/plugins
     cpuset: ${TELEM_CPU:-0}
 
 networks:
@@ -88,3 +132,4 @@ networks:
 volumes:
   grafana-data:
   influxdb-data:
+  mosquitto-log:

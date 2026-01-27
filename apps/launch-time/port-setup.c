@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "launch-time.h"
 #include "mqtt.h"
 
@@ -167,7 +162,9 @@ port_init(lport_t *lport)
     printf("Port %u MAC %s\n", pid, buff);
 
     // Convert the MAC address string into binary format
-    rte_ether_unformat_addr(pinfo->dest_mac_str, &lport->dst_mac);
+    if (rte_ether_unformat_addr(pinfo->dest_mac_str, &lport->dst_mac) != 0)
+        rte_exit(EXIT_FAILURE, "Error: Invalid destination MAC address '%s'\n",
+                 pinfo->dest_mac_str);
 
     if (rte_eth_dev_set_ptypes(pid, RTE_PTYPE_UNKNOWN, NULL, 0) < 0)
         rte_exit(EXIT_FAILURE, "Port %u, Failed to disable Ptype parsing\n", pid);
@@ -198,7 +195,7 @@ port_init(lport_t *lport)
                      rte_strerror(-retval));
         pinfo->rx_timestamp_offset = offset;
         pinfo->rx_timestamp_flag   = flag;
-        fprintf(stderr, ">> MBUF Hardware    Timestamp offset %d, bit %016"PRIu64"\n",
+        fprintf(stderr, ">> MBUF Hardware    Timestamp offset %d, bit %016"PRIx64"\n",
                 pinfo->rx_timestamp_offset, pinfo->rx_timestamp_flag);
     }
     if (_btst(LAUNCH_TIME)) {
@@ -211,7 +208,7 @@ port_init(lport_t *lport)
                      rte_strerror(-retval));
         pinfo->tx_timestamp_offset = offset;
         pinfo->tx_timestamp_flag   = flag;
-        fprintf(stderr, ">> MBUF Launch time Timestamp offset %d, bit %016"PRIu64"\n",
+        fprintf(stderr, ">> MBUF Launch time Timestamp offset %d, bit %016"PRIx64"\n",
                 pinfo->tx_timestamp_offset, pinfo->tx_timestamp_flag);
     }
 

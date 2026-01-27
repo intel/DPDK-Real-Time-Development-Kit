@@ -129,12 +129,20 @@ lport_tx_buffer_flush(lport_id_t id)
     pkts           = buffer->pkts;
     to_send        = buffer->length;
     buffer->length = 0;
-    do {
+    for (int retries = 0; to_send > 0; ) {
         uint16_t n = rte_eth_tx_burst(pid, qid, pkts, to_send);
         to_send -= n;
         pkts += n;
         sent += n;
-    } while (to_send > 0);
+        if (n == 0) {
+            if (++retries >= 100)
+                break;
+        } else {
+            retries = 0;
+        }
+    }
+    if (to_send > 0)
+        rte_pktmbuf_free_bulk(pkts, to_send);
 
     return sent;
 }

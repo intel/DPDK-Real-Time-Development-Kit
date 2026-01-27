@@ -30,6 +30,12 @@ sources = files(
 )
 
 # Prepare dependencies list
+if not openssl_dep.found()
+    openssl_dep = dependency('openssl', required: true)
+endif
+if not yaml_dep.found()
+    yaml_dep = dependency('yaml-0.1', required: true)
+endif
 tsn_tb_deps = [dpdk_dep, threads_dep, openssl_dep, yaml_dep]
 if get_option('enable_mqtt')
     tsn_tb_deps += mosquitto_dep

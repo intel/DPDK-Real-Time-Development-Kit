@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "cnp-tuning.h"
 
 #include <rte_mbuf_dyn.h>
@@ -56,7 +51,7 @@ __init_port_configure(lport_t *lport)
     // Adjust max_lro_pkt_size if needed
     if (lport->dev_info.max_lro_pkt_size > RTE_ETHER_MAX_LEN) {
         printf("  Adjusting max_lro_pkt_size from %u to %u\n", lport->dev_info.max_lro_pkt_size,
-               RTE_ETHER_MAX_LEN);
+               (unsigned)RTE_ETHER_MAX_LEN);
         lport->port_conf.rxmode.max_lro_pkt_size = RTE_ETHER_MAX_LEN;
     }
     printf("  max_lro_pkt_size: %u\n", lport->port_conf.rxmode.max_lro_pkt_size);
@@ -74,6 +69,11 @@ __init_port_configure(lport_t *lport)
     if (*lport->dev_info.dev_flags & RTE_ETH_DEV_INTR_LSC) {
         printf("    Supports Link Status Change interrupts\n");
         lport->port_conf.intr_conf.lsc = 1;
+    }
+
+    if (lport->dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MULTI_SEGS) {
+        printf("    Supports TX multi-segments for TX timestamp, enabled\n");
+        lport->port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MULTI_SEGS;
     }
 
     if (lport->dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE) {
@@ -216,7 +216,9 @@ __init_macaddr(lport_t *lport)
 
     // Convert the MAC address string into binary format
     char buff[64];
-    rte_ether_unformat_addr(pinfo->dst_mac_str, &lport->dst_mac);
+    if (rte_ether_unformat_addr(pinfo->dst_mac_str, &lport->dst_mac) != 0)
+        rte_exit(EXIT_FAILURE, "Error: Invalid destination MAC address '%s'\n",
+                 pinfo->dst_mac_str);
 
     rte_ether_format_addr(buff, sizeof(buff), &lport->dst_mac);
     printf("Port %u Dst MAC %s ", pid, buff);
@@ -280,22 +282,6 @@ __init_promiscuous(lport_t *lport)
     return 0;
 }
 
-static int
-__init_timestamp_fields(lport_t *lport)
-{
-    int dynf = rte_mbuf_dynflag_lookup(RTE_MBUF_DYNFLAG_RX_TIMESTAMP_NAME, NULL);
-    if (dynf >= 0)
-        lport->rx_timestamp_flag = (1UL << dynf);
-
-    dynf = rte_mbuf_dynfield_lookup(RTE_MBUF_DYNFIELD_TIMESTAMP_NAME, NULL);
-    if (dynf >= 0)
-        lport->rx_timestamp_offset = dynf;
-
-    printf("  RX timestamp dynfield offset: %u flag: 0x%016" PRIx64 "\n",
-           lport->rx_timestamp_offset, lport->rx_timestamp_flag);
-    return 0;
-}
-
 /*
  * Initializes a given port using global settings and default values.
  */
@@ -316,7 +302,6 @@ port_init(lport_t *lport)
 		__init_start_device,
 		__init_enable_timestamping,
 		__init_promiscuous,
-		__init_timestamp_fields,
 		NULL
 	};
     // clang-format on

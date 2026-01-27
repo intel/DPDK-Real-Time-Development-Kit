@@ -2,26 +2,21 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
 
-#ifndef _RTC_CONST_H_
-#define _RTC_CONST_H_
+#ifndef _LTTT_CONSTS_H_
+#define _LTTT_CONSTS_H_
 
 #include <rte_time.h>
 
 #ifndef CLOCK_TAI
-#define CLOCK_TAI 1
+#define CLOCK_TAI 11
 #endif
 #ifndef TIMER_ABSTIME
-#define TIMER_ABSTIME 0
+#define TIMER_ABSTIME 1
 #endif
 
 enum {
-    THE_BEEF_TIMESTAMP = 0xbeef,          // Magic value for BEEF timestamp
-    BIG_NUM            = 60000000,        // A big number
+    BIG_NUM            = 60000000,        // Initial min_ns sentinel value
     MAX_BURST_COUNT    = 256,             // Maximum number of packets to send per burst
     DEFAULT_RING_SIZE  = 1024,            // Size of ring for each port
     DEFAULT_MBUF_COUNT = 8192,            // Number of mbufs per port

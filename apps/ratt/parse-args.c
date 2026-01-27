@@ -2,17 +2,10 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "ratt.h"
 #include "log.h"
 #include "mqtt.h"
 #include <dlfcn.h>
-
-void string_to_argc_argv(const char *input, int *argc, char ***argv);
 
 enum {
     OPT_SKIP_NUM = 0,
@@ -69,38 +62,50 @@ count_chr(const char *str, char c)
     return count;
 }
 
+
 static void
-process_duration(char *str)
+process_duration(const char *str)
 {
     uint32_t hours = 0, minutes = 0, seconds = 0;
     char dur_str[64];
 
     switch (count_chr(str, ':')) {
     case 0:        // no colons if must be seconds
-        sscanf(str, "%d", &seconds);
+        if (sscanf(str, "%u", &seconds) != 1)
+            rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n");
         break;
     case 1:                       // one colon if must be minutes and seconds
         if (str[0] == ':')        // no minutes, just seconds
-            sscanf(str, ":%d", &seconds);
+            { if (sscanf(str, ":%u", &seconds) != 1)
+                rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n"); }
         else
-            sscanf(str, "%d:%d", &minutes, &seconds);
+            { if (sscanf(str, "%u:%u", &minutes, &seconds) != 2)
+                rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n"); }
         break;
     case 2:        // two colons if must be hours, minutes, and seconds
         if (str[0] == ':' && str[1] == ':')        // no hours or minutes, just seconds
-            sscanf(str, "::%d", &seconds);
+            { if (sscanf(str, "::%u", &seconds) != 1)
+                rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n"); }
         else if (str[0] == ':')        // no hours, just minutes and seconds
-            sscanf(str, ":%d:%d", &minutes, &seconds);
+            { if (sscanf(str, ":%u:%u", &minutes, &seconds) != 2)
+                rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n"); }
         else
-            sscanf(str, "%d:%d:%d", &hours, &minutes, &seconds);
+            { if (sscanf(str, "%u:%u:%u", &hours, &minutes, &seconds) != 3)
+                rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n"); }
         break;
     default:
         rte_exit(EXIT_FAILURE,
                  "Error: Invalid run duration format, expected format: Hours:Minutes:Seconds\n");
     }
-    pinfo->run_duration_sec += hours * 60 * 60 + minutes * 60 + seconds;
-    snprintf(dur_str, sizeof(dur_str), "%03d:%02d:%02d", hours, minutes, seconds);
+    if (hours > 99999 || minutes > 59 || seconds > 59)
+        rte_exit(EXIT_FAILURE,
+                 "Error: Invalid duration values (max 99999:59:59)\n");
+    pinfo->run_duration_sec = hours * 3600U + minutes * 60U + seconds;
+    snprintf(dur_str, sizeof(dur_str), "%03u:%02u:%02u", hours, minutes, seconds);
     free(pinfo->run_duration_str);
     pinfo->run_duration_str = strdup(dur_str);
+    if (!pinfo->run_duration_str)
+        rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
 }
 
 /**
@@ -262,10 +267,10 @@ static void process_workload(char *arg)
         token = strtok(NULL, ",");
     }
 
-    strcpy(pinfo->rt_workload.args, extraParams);
+    snprintf(pinfo->rt_workload.args, sizeof(pinfo->rt_workload.args), "%s", extraParams);
 
-    // Tokenize extraParams into argc argv
-    pinfo->rt_workload.workload_argc = strqtok(extraParams, " \r\n", pinfo->rt_workload.workload_argv, WORKLOAD_MAX_ARGS);
+    // Tokenize args into argc argv (must use pinfo->rt_workload.args, not local extraParams)
+    pinfo->rt_workload.workload_argc = strqtok(pinfo->rt_workload.args, " \r\n", pinfo->rt_workload.workload_argv, WORKLOAD_MAX_ARGS);
 
     pinfo->rt_workload.workload_handler = dlopen(pinfo->rt_workload.file, RTLD_NOW | RTLD_GLOBAL);
     if (!pinfo->rt_workload.workload_handler) {
@@ -316,7 +321,7 @@ parse_args(int argc, char **argv)
 #if HAS_HW_TIMESTAMPING
         {"hw-timestamp", 	no_argument, 		0, OPT_HW_TIMESTAMP_NUM},
 #endif
-        {"workload",     no_argument,        0, 'w'},
+        {"workload",     required_argument,  0, 'w'},
 		{NULL, 0, 0, 0}
 	};
 	const char *short_options = "rmc:b:d:l:MDs:R:PSihw:";
@@ -327,7 +332,11 @@ parse_args(int argc, char **argv)
     pinfo->link_speed       = RTE_ETH_SPEED_NUM_UNKNOWN;
     pinfo->pkt_skip_cnt     = DEFAULT_SKIP_COUNT;
     pinfo->run_duration_str = strdup("000:00:00");
+    if (!pinfo->run_duration_str)
+        rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
     pinfo->dest_mac_str     = strdup("FF:FF:FF:FF:FF:FF");
+    if (!pinfo->dest_mac_str)
+        rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
 
     // Parse the command line options.
     while ((opt = getopt_long(argc, argvopt, short_options, lgopts, &option_index)) != EOF) {
@@ -339,13 +348,19 @@ parse_args(int argc, char **argv)
         case 'm':        // mirror mode (reference mode == false default)
             pinfo->mirror_enabled = true;
             break;
-        case 'c':        // cycle-time
-            pinfo->cycle_time_ns = strtoul(optarg, NULL, 0);
+        case 'c': {      // cycle-time
+            char *endptr;
+            errno = 0;
+            pinfo->cycle_time_ns = strtoul(optarg, &endptr, 0);
+            if (errno != 0 || *endptr != '\0' || endptr == optarg)
+                rte_exit(EXIT_FAILURE, "Error: Invalid cycle-time value '%s'\n", optarg);
+        }
             break;
         case 'b':        // burst-length
             switch (count_chr(optarg, '/')) {
             case 1:
-                sscanf(optarg, "%hd/%hd", &pinfo->burst_count, &pinfo->pkt_length);
+                if (sscanf(optarg, "%hu/%hu", &pinfo->burst_count, &pinfo->pkt_length) != 2)
+                    rte_exit(EXIT_FAILURE, "Error: Invalid format, expected format: Burst/Length\n");
                 break;
             default:
                 rte_exit(EXIT_FAILURE, "Error: Invalid format, expected format: Burst/Length\n");
@@ -360,11 +375,16 @@ parse_args(int argc, char **argv)
                 pinfo->pkt_length = MIN_PKT_LENGTH;
 
             pinfo->pkt_length -= FCS_SIZE;        // remove the FCS bytes
+            free(pinfo->burst_length_str);
             pinfo->burst_length_str = strdup(optarg);
+            if (!pinfo->burst_length_str)
+                rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
             break;
         case 'd':        // dest-mac
             free(pinfo->dest_mac_str);
             pinfo->dest_mac_str = strdup(optarg);
+            if (!pinfo->dest_mac_str)
+                rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
             break;
         case 'l':        // log-file
             if (!pinfo->log_enabled && log_init(optarg))
@@ -379,8 +399,14 @@ parse_args(int argc, char **argv)
         case 'D':        // log all time deltas
             pinfo->deltas_enabled = true;
             break;
-        case 's':        // link speed Mbps
-            pinfo->link_speed = strtoul(optarg, NULL, 0);
+        case 's': {      // link speed Mbps
+            char *endptr;
+            errno = 0;
+            unsigned long val = strtoul(optarg, &endptr, 0);
+            if (errno != 0 || *endptr != '\0' || endptr == optarg || val > UINT32_MAX)
+                rte_exit(EXIT_FAILURE, "Error: Invalid link-speed value '%s'\n", optarg);
+            pinfo->link_speed = (uint32_t)val;
+        }
             break;
         case 'R':        // Run duration in seconds
             process_duration(optarg);
@@ -398,11 +424,23 @@ parse_args(int argc, char **argv)
             print_usage(prgname);
             break;
 
-        case OPT_SKIP_NUM:        // Number of packets to skip
-            pinfo->pkt_skip_cnt = atoi(optarg);
+        case OPT_SKIP_NUM: {       // Number of packets to skip
+            char *endptr;
+            errno = 0;
+            unsigned long val = strtoul(optarg, &endptr, 0);
+            if (errno != 0 || *endptr != '\0' || endptr == optarg || val > UINT32_MAX)
+                rte_exit(EXIT_FAILURE, "Error: Invalid skip-count value '%s'\n", optarg);
+            pinfo->pkt_skip_cnt = (uint32_t)val;
+        }
             break;
-        case OPT_DELAY_NUM:        // Delay start TX in seconds
-            pinfo->delay_sec = atoi(optarg);
+        case OPT_DELAY_NUM: {      // Delay start TX in seconds
+            char *endptr;
+            errno = 0;
+            unsigned long val = strtoul(optarg, &endptr, 0);
+            if (errno != 0 || *endptr != '\0' || endptr == optarg || val > UINT16_MAX)
+                rte_exit(EXIT_FAILURE, "Error: Invalid delay-time value '%s'\n", optarg);
+            pinfo->delay_sec = (uint16_t)val;
+        }
             break;
         case OPT_CONTINUE_ON_ERROR_NUM:        // Continue running even if errors occur
             pinfo->continue_on_error = true;

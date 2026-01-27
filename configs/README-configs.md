@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- Copyright(c) 2025 Intel Corporation -->
+
 # TCC Ready Configurations
 
 This directory contains configuration files for TCC (Time Coordinated Computing) ready applications. These configurations are optimized for low-latency and high-throughput performance on Intel architecture.

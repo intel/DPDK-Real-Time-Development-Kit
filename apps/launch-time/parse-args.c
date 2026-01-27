@@ -2,14 +2,11 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "launch-time.h"
 #include "log.h"
 #include "mqtt.h"
+
+#include <errno.h>
 
 void
 print_app_usage(const char *prgname)
@@ -18,8 +15,6 @@ print_app_usage(const char *prgname)
     printf("\n");
     printf("%s: Application Options:\n", prgname);
     printf("  Required:\n");
-    printf("    -r | --reference         Enable Reference mode (Default Enabled)\n");
-    printf("    -m | --mirror            Enable Mirror mode (Default Disabled)\n");
     printf("    -c | --launch-interval N Number of nanoseconds per launch time interval (e.g., 31250ns = 31.250us)\n");
     printf("    -b | --burst-length N    Burst-Count/Pkt-Length (e.g., 1/64 or 4/128, max burst: %'d)\n", MAX_BURST_COUNT);
     printf("\n");
@@ -28,13 +23,12 @@ print_app_usage(const char *prgname)
     printf("    -l | --log-file FILE     Log packet timestamps to FILE\n");
     printf("    -M | --mqtt              Enable MQTT logging (Default Disabled)\n");
     printf("    -s | --link-speed N      Desired NIC Link Speed in Mbps (Default Auto-Neg)\n");
-    printf("    -R | --run-duration N    Amount of time to run 'Hours:Minutes:Seconds' (default forever) (Reference)\n");
+    printf("    -R | --run-duration N    Amount of time to run 'Hours:Minutes:Seconds' (default forever)\n");
     printf("    -P | --promiscuous       Enable promiscuous mode (Default Disabled)\n");
-    printf("    -i | --internal-debug    Internal debugging statistics\n");
     printf("    -L | --launch-time       Enable launch time support\n");
     printf("    -H | --hw-timestamp      Enable hardware timestamping\n");
     printf("    -h | --help              Print this help text\n");
-    printf("    -D | --delay-time N      Number of seconds to delay (Default: %'d) (Reference)\n", DEFAULT_DELAY_SEC);
+    printf("    -D | --delay-time N      Number of seconds to delay (Default: %'d)\n", DEFAULT_DELAY_SEC);
     printf("    -T | --tx-burst-offset N TX burst offset in ns before cycle end (Default: auto-calculated)\n");
     printf("\n");
     // clang-format on
@@ -53,37 +47,48 @@ count_chr(const char *str, char c)
 }
 
 static void
-process_duration(char *str)
+process_duration(const char *str)
 {
     uint32_t hours = 0, minutes = 0, seconds = 0;
     char dur_str[64];
 
     switch (count_chr(str, ':')) {
     case 0:        // no colons if must be seconds
-        sscanf(str, "%d", &seconds);
+        if (sscanf(str, "%u", &seconds) != 1)
+            rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n");
         break;
     case 1:                       // one colon if must be minutes and seconds
         if (str[0] == ':')        // no minutes, just seconds
-            sscanf(str, ":%d", &seconds);
+            { if (sscanf(str, ":%u", &seconds) != 1)
+                rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n"); }
         else
-            sscanf(str, "%d:%d", &minutes, &seconds);
+            { if (sscanf(str, "%u:%u", &minutes, &seconds) != 2)
+                rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n"); }
         break;
     case 2:        // two colons if must be hours, minutes, and seconds
         if (str[0] == ':' && str[1] == ':')        // no hours or minutes, just seconds
-            sscanf(str, "::%d", &seconds);
+            { if (sscanf(str, "::%u", &seconds) != 1)
+                rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n"); }
         else if (str[0] == ':')        // no hours, just minutes and seconds
-            sscanf(str, ":%d:%d", &minutes, &seconds);
+            { if (sscanf(str, ":%u:%u", &minutes, &seconds) != 2)
+                rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n"); }
         else
-            sscanf(str, "%d:%d:%d", &hours, &minutes, &seconds);
+            { if (sscanf(str, "%u:%u:%u", &hours, &minutes, &seconds) != 3)
+                rte_exit(EXIT_FAILURE, "Error: Invalid run duration value\n"); }
         break;
     default:
         rte_exit(EXIT_FAILURE,
                  "Error: Invalid run duration format, expected format: Hours:Minutes:Seconds\n");
     }
-    pinfo->run_duration_sec += hours * 60 * 60 + minutes * 60 + seconds;
-    snprintf(dur_str, sizeof(dur_str), "%03d:%02d:%02d", hours, minutes, seconds);
+    if (hours > 99999 || minutes > 59 || seconds > 59)
+        rte_exit(EXIT_FAILURE,
+                 "Error: Invalid duration values (max 99999:59:59)\n");
+    pinfo->run_duration_sec = hours * 3600U + minutes * 60U + seconds;
+    snprintf(dur_str, sizeof(dur_str), "%03u:%02u:%02u", hours, minutes, seconds);
     free(pinfo->run_duration_str);
     pinfo->run_duration_str = strdup(dur_str);
+    if (!pinfo->run_duration_str)
+        rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
 }
 
 /* Parse the commandline arguments. */
@@ -120,7 +125,11 @@ parse_args(int argc, char **argv)
     pinfo->delay_sec           = DEFAULT_DELAY_SEC;
     pinfo->link_speed          = RTE_ETH_SPEED_NUM_UNKNOWN;
     pinfo->run_duration_str    = strdup("000:00:00");
+    if (!pinfo->run_duration_str)
+        rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
     pinfo->dest_mac_str        = strdup("FF:FF:FF:FF:FF:FF");
+    if (!pinfo->dest_mac_str)
+        rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
     pinfo->rx_timestamp_offset = -1;
     pinfo->tx_timestamp_offset = -1;
 
@@ -128,14 +137,20 @@ parse_args(int argc, char **argv)
     while ((opt = getopt_long(argc, argvopt, short_options, lgopts, &option_index)) != EOF) {
 
         switch (opt) {
-        case 'c':        // launch-interval
-            pinfo->launch_interval_ns = strtoul(optarg, NULL, 0);
+        case 'c': {      // launch-interval
+            char *endptr;
+            errno = 0;
+            pinfo->launch_interval_ns = strtoul(optarg, &endptr, 0);
+            if (errno != 0 || *endptr != '\0' || endptr == optarg)
+                rte_exit(EXIT_FAILURE, "Error: Invalid launch-interval value '%s'\n", optarg);
             printf(">> Launch Interval Set To: %" PRIu64 " ns\n", pinfo->launch_interval_ns);
+        }
             break;
         case 'b':        // burst-length
             switch (count_chr(optarg, '/')) {
             case 1:
-                sscanf(optarg, "%hd/%hd", &pinfo->burst_count, &pinfo->pkt_length);
+                if (sscanf(optarg, "%hu/%hu", &pinfo->burst_count, &pinfo->pkt_length) != 2)
+                    rte_exit(EXIT_FAILURE, "Error: Invalid format, expected format: Burst/Length\n");
                 break;
             default:
                 rte_exit(EXIT_FAILURE, "Error: Invalid format, expected format: Burst/Length\n");
@@ -150,17 +165,28 @@ parse_args(int argc, char **argv)
                 pinfo->pkt_length = MIN_PKT_LENGTH;
 
             pinfo->pkt_length -= FCS_SIZE;        // remove the FCS bytes
+            free(pinfo->burst_length_str);
             pinfo->burst_length_str = strdup(optarg);
+            if (!pinfo->burst_length_str)
+                rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
             printf(">> Burst Length Set To: %s\n", pinfo->burst_length_str);
             break;
         case 'd':        // dest-mac
             free(pinfo->dest_mac_str);
             pinfo->dest_mac_str = strdup(optarg);
+            if (!pinfo->dest_mac_str)
+                rte_exit(EXIT_FAILURE, "Error: Memory allocation failed\n");
             printf(">> Destination MAC Set To: %s\n", pinfo->dest_mac_str);
             break;
-        case 'D':        // Delay start TX in seconds
-            pinfo->delay_sec = atoi(optarg);
-            printf(">> Delay Start TX Set To: %d seconds\n", pinfo->delay_sec);
+        case 'D': {      // Delay start TX in seconds
+            char *endptr;
+            errno = 0;
+            unsigned long val = strtoul(optarg, &endptr, 0);
+            if (errno != 0 || *endptr != '\0' || endptr == optarg || val > UINT16_MAX)
+                rte_exit(EXIT_FAILURE, "Error: Invalid delay-time value '%s'\n", optarg);
+            pinfo->delay_sec = (uint16_t)val;
+            printf(">> Delay Start TX Set To: %u seconds\n", pinfo->delay_sec);
+        }
             break;
         case 'l':        // log-file
             if (!_btst(LOG) && log_init(optarg))
@@ -174,9 +200,15 @@ parse_args(int argc, char **argv)
             _bset(MQTT);
             printf(">> MQTT Logging Enabled\n");
             break;
-        case 's':        // link speed Mbps
-            pinfo->link_speed = strtoul(optarg, NULL, 0);
+        case 's': {      // link speed Mbps
+            char *endptr;
+            errno = 0;
+            unsigned long val = strtoul(optarg, &endptr, 0);
+            if (errno != 0 || *endptr != '\0' || endptr == optarg || val > UINT32_MAX)
+                rte_exit(EXIT_FAILURE, "Error: Invalid link-speed value '%s'\n", optarg);
+            pinfo->link_speed = (uint32_t)val;
             printf(">> Link Speed Set To: %u Mbps\n", pinfo->link_speed);
+        }
             break;
         case 'R':        // Run duration in seconds
             process_duration(optarg);
@@ -194,9 +226,15 @@ parse_args(int argc, char **argv)
             _bset(HW_TIMESTAMP);
             printf(">> HW Timestamping Enabled\n");
             break;
-        case 'T':        // TX burst offset in nanoseconds
-            pinfo->tx_burst_offset_ns = strtoul(optarg, NULL, 0);
+        case 'T': {      // TX burst offset in nanoseconds
+            char *endptr;
+            errno = 0;
+            unsigned long val = strtoul(optarg, &endptr, 0);
+            if (errno != 0 || *endptr != '\0' || endptr == optarg || val > UINT32_MAX)
+                rte_exit(EXIT_FAILURE, "Error: Invalid tx-burst-offset value '%s'\n", optarg);
+            pinfo->tx_burst_offset_ns = (uint32_t)val;
             printf(">> TX Burst Offset Set To: %u ns\n", pinfo->tx_burst_offset_ns);
+        }
             break;
         case 'h':
             print_app_usage(prgname);

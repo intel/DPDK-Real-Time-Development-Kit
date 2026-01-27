@@ -179,7 +179,7 @@ dcp_rx_frame(void *data, struct rte_mbuf **mbufs, uint16_t nb_mbufs)
         }
 
         if (proto != htons(ETH_P_PROFINET_RT)) {
-            log_message(LOG_LEVEL_WARNING, "RtcRx: Not a Profinet frame received!\n");
+            log_message(LOG_LEVEL_WARNING, "DcpRx: Not a Profinet frame received!\n");
             goto drop;
         }
 

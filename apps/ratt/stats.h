@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #ifndef _STATS_H_
 #define _STATS_H_
 
@@ -54,6 +49,5 @@ typedef struct {
 } timestamp_t;
 
 void print_stats(void);
-void reset_stats(void);
 
 #endif /* _STATS_H_ */

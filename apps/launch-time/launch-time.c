@@ -2,11 +2,6 @@
  * Copyright(c) 2025 Intel Corporation
  */
 
-/*
- * This application is a simple reference and mirror application to measure the
- * performance sending a fixed set of packets at a given cycle time.
- */
-
 #include "launch-time.h"
 #include "log.h"
 #include "mqtt.h"
@@ -29,10 +24,11 @@ int
 main(int argc, char *argv[])
 {
     uint16_t nb_ports, nb_lcores, port_id, nb_lcores_needed;
-    int ret, main_lcore_id;
+    int ret;
 
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
+    if (signal(SIGINT, signal_handler) == SIG_ERR ||
+        signal(SIGTERM, signal_handler) == SIG_ERR)
+        rte_exit(EXIT_FAILURE, "Error: Failed to register signal handler\n");
 
     setlocale(LC_ALL, "");        // Allow for formatted numbers .e.g, 1,000,000
 
@@ -65,10 +61,17 @@ main(int argc, char *argv[])
     if (nb_ports > 1)
         printf("Number of ports: %u, using only first one\n", nb_ports);
 
-    main_lcore_id = rte_get_main_lcore();
-    if (_btst(MQTT))
-        pinfo->mqtt_lcore_id = ++main_lcore_id;
-    pinfo->worker_lcore_id = ++main_lcore_id;
+    unsigned int next_lcore = rte_get_main_lcore();
+    if (_btst(MQTT)) {
+        next_lcore = rte_get_next_lcore(next_lcore, 1, 0);
+        if (next_lcore >= RTE_MAX_LCORE)
+            rte_exit(EXIT_FAILURE, "Not enough lcores for MQTT thread\n");
+        pinfo->mqtt_lcore_id = next_lcore;
+    }
+    next_lcore = rte_get_next_lcore(next_lcore, 1, 0);
+    if (next_lcore >= RTE_MAX_LCORE)
+        rte_exit(EXIT_FAILURE, "Not enough lcores for worker thread\n");
+    pinfo->worker_lcore_id = next_lcore;
 
     // Assign each worker lcore a port and initialize its data structure.
     lcore_t *lcore = &pinfo->lcores[pinfo->worker_lcore_id];
@@ -110,19 +113,23 @@ main(int argc, char *argv[])
 
     keyboard_loop();
 
+    rte_eal_wait_lcore(pinfo->worker_lcore_id);
+    if (_btst(MQTT))
+        rte_eal_wait_lcore(pinfo->mqtt_lcore_id);
+
     RTE_ETH_FOREACH_DEV(port_id)
     {
-        int ret;
-
-        if ((ret = rte_eth_dev_stop(port_id)) < 0)
-            printf("rte_eth_dev_stop: err=%d, port=%d, %s\n", ret, port_id, rte_strerror(ret));
+        if (rte_eth_dev_stop(port_id) < 0)
+            printf("rte_eth_dev_stop: port=%d\n", port_id);
 
         rte_eth_dev_close(port_id);
     }
     log_flush();
 
     rte_free(lcore->rx_mbufs);
+    lcore->rx_mbufs = NULL;
     rte_free(lcore->tx_mbufs);
+    lcore->tx_mbufs = NULL;
 
     return 0;
 }

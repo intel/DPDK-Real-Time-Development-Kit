@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright(c) 2025 Intel Corporation
 #
 # Wrapper for running a DPDK application with GDB. Normally used with vscode debugging.
 #   DPDK needs to run in sudo or privileged mode, use this wrapper

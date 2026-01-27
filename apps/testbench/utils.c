@@ -437,13 +437,15 @@ prepare_openssl(struct security_context *context)
     if (!context)
         return;
 
-    security_encrypt(context, NULL, 0, dummy_frame,
-                     sizeof(dummy_frame) - sizeof(struct security_checksum), iv, NULL,
-                     dummy_frame + sizeof(dummy_frame) - sizeof(struct security_checksum));
+    if (security_encrypt(context, NULL, 0, dummy_frame,
+                         sizeof(dummy_frame) - sizeof(struct security_checksum), iv, NULL,
+                         dummy_frame + sizeof(dummy_frame) - sizeof(struct security_checksum)) != 0)
+        return;
 
-    security_decrypt(
-        context, NULL, 0, dummy_frame, sizeof(dummy_frame) - sizeof(struct security_checksum),
-        dummy_frame + sizeof(dummy_frame) - sizeof(struct security_checksum), iv, NULL);
+    if (security_decrypt(
+            context, NULL, 0, dummy_frame, sizeof(dummy_frame) - sizeof(struct security_checksum),
+            dummy_frame + sizeof(dummy_frame) - sizeof(struct security_checksum), iv, NULL) != 0)
+        return;
 }
 
 static int latency_fd = -1;
@@ -462,7 +464,7 @@ configure_cpu_latency(void)
 
     ret = write(fd, &lat, sizeof(lat));
     if (ret != sizeof(lat)) {
-        close(latency_fd);
+        close(fd);
         return;
     }
 
@@ -564,22 +566,22 @@ get_meta_data_offset(enum stat_frame_type frame_type, enum security_mode securit
 #define LINE_LEN 128
 
 void
-hexdump(FILE *f, const char *title, const void *buf, unsigned int len)
+hexdump(FILE *f, const char *title, const void *buf, size_t len)
 {
-    unsigned int i, out, ofs;
+    size_t i, out, ofs;
     const unsigned char *data = buf;
     char line[LINE_LEN]; /* space needed 8+16*3+3+16 == 75 */
 
-    fprintf(f, "%s at [%p], len=%u\n", title != NULL ? title : "  Dump data", data, len);
+    fprintf(f, "%s at [%p], len=%zu\n", title != NULL ? title : "  Dump data", data, len);
     ofs = 0;
     while (ofs < len) {
         /* format the line in the buffer */
-        out = snprintf(line, LINE_LEN, "%08X:", ofs);
+        out = snprintf(line, LINE_LEN, "%08zX:", ofs);
         for (i = 0; i < 16; i++) {
             if (ofs + i < len)
                 snprintf(line + out, LINE_LEN - out, " %02X", (data[ofs + i] & 0xff));
             else
-                strcpy(line + out, "   ");
+                snprintf(line + out, LINE_LEN - out, "   ");
             out += 3;
         }
 
@@ -599,9 +601,9 @@ hexdump(FILE *f, const char *title, const void *buf, unsigned int len)
 }
 
 void
-memdump(FILE *f, const char *title, const void *buf, unsigned int len)
+memdump(FILE *f, const char *title, const void *buf, size_t len)
 {
-    unsigned int i, out;
+    size_t i, out;
     const unsigned char *data = buf;
     char line[LINE_LEN];
 

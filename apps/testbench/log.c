@@ -58,8 +58,11 @@ __log_init(struct thread_context *thread_context)
     log_private.log_pool =
         rte_mempool_create("log_pool", LOG_MEMPOOL_BUFFER_COUNT, LOG_MEMPOOL_BUFFER_SIZE, 64, 0,
                            NULL, NULL, NULL, NULL, socket_id, 0);
-    if (!log_private.log_pool)
+    if (!log_private.log_pool) {
+        rte_ring_free(log_private.global_ring_buffer);
+        log_private.global_ring_buffer = NULL;
         return -ENOMEM;
+    }
 
     /* Default */
     log_private.current_level = LOG_LEVEL_DEBUG;
@@ -97,11 +100,22 @@ log_level_to_string(enum log_level level)
     return NULL;
 }
 
+static inline void
+log_advance_buffer(char **buffer, size_t *length, int written)
+{
+    if (written < 0)
+        return;
+    size_t w = (size_t)written >= *length ? *length : (size_t)written;
+    *buffer += w;
+    *length -= w;
+}
+
 void
 log_message(enum log_level level, const char *format, ...)
 {
     unsigned char *buffer;
-    int written, len, ret;
+    int written, ret;
+    size_t len;
     struct timespec time;
     va_list args;
     char *p;
@@ -128,15 +142,19 @@ log_message(enum log_level level, const char *format, ...)
 
     written = snprintf(p, len, "[%8ld.%9ld]: [%s]: ", time.tv_sec, time.tv_nsec,
                        log_level_to_string(level));
-    p += written;
-    len -= written;
+    log_advance_buffer(&p, &len, written);
 
     va_start(args, format);
     written += vsnprintf(p, len, format, args);
     va_end(args);
 
+    /* Clamp written to actual buffer capacity */
+    size_t max_len = LOG_MEMPOOL_BUFFER_SIZE - sizeof(uint16_t);
+    if ((size_t)written > max_len)
+        written = (int)max_len;
     *(uint16_t *)buffer = (uint16_t)written;
-    rte_ring_enqueue(log_private.global_ring_buffer, buffer);
+    if (rte_ring_enqueue(log_private.global_ring_buffer, buffer))
+        rte_mempool_put(log_private.log_pool, buffer);
 }
 
 static void
@@ -154,15 +172,13 @@ log_add_traffic_class(const char *name, enum stat_frame_type frame_type, char **
                  name, stat->frames_sent, name, stat->frames_received, name, stat->round_trip_min,
                  name, stat->round_trip_max, name, stat->round_trip_avg, name, stat->oneway_min,
                  name, stat->oneway_max, name, stat->oneway_avg);
-    *buffer += written;
-    *length -= written;
+    log_advance_buffer(buffer, length, written);
 
     if (stat_frame_type_is_real_time(frame_type)) {
         written = snprintf(*buffer, *length,
                            "%sRttOutliers=%" PRIu64 " | %sOnewayOutliers=%" PRIu64 " | ", name,
                            stat->round_trip_outliers, name, stat->oneway_outliers);
-        *buffer += written;
-        *length -= written;
+        log_advance_buffer(buffer, length, written);
     }
 
     written = snprintf(*buffer, *length,
@@ -170,32 +186,28 @@ log_add_traffic_class(const char *name, enum stat_frame_type frame_type, char **
                        " | %sPayloadErrors=%" PRIu64 " | ",
                        name, stat->out_of_order_errors, name, stat->frame_id_errors, name,
                        stat->payload_errors);
-    *buffer += written;
-    *length -= written;
+    log_advance_buffer(buffer, length, written);
 
     written =
         snprintf(*buffer, *length, "%sRxNextTimeAvg=%0.2lf [us] | %sTxNextTimeAvg=%0.2lf [us] | ",
                  name, stat->rx_nexttime_avg, name, stat->tx_nexttime_avg);
-    *buffer += written;
-    *length -= written;
+    log_advance_buffer(buffer, length, written);
 
     written = snprintf(
         *buffer, *length,
         "%sRxTimerAvg=%0.2lf [ns] | %sTxTimerAvg=%0.2lf [ns] | %sTxGenTimerAvg=%0.2lf [ns] | ",
         name, stat->rx_timer_avg, name, stat->tx_timer_avg, name, stat->txgen_timer_avg);
-    *buffer += written;
-    *length -= written;
+    log_advance_buffer(buffer, length, written);
 }
 
 static void
 log_add_logging_stats(char **buffer, size_t *length)
 {
-    size_t written;
+    int written;
 
     written = snprintf(*buffer, *length, "LogDrops=%" PRIu64 " | ", log_private.messages_dropped);
 
-    *buffer += written;
-    *length -= written;
+    log_advance_buffer(buffer, length, written);
 }
 
 static int

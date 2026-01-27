@@ -80,7 +80,7 @@ uint64_t thread_timer_end_ns(struct thread_context *ctx, timer_id_t id);
 struct stat_avg *thread_timer_avg(struct thread_context *ctx, struct stat_avg *avg);
 
 #define MIN_WAIT_TIME     16
-#define WAIT_TIME_MASK    ~(MIN_WAIT_TIME - 1)
+#define WAIT_TIME_MASK    (~(MIN_WAIT_TIME - 1))
 
 static inline void
 wait_sync_time(uint32_t requested)
